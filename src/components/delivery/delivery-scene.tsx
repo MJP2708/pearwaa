@@ -1,268 +1,335 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { animate } from "framer-motion";
-import { ArrowLeft, ArrowRight, RotateCcw } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Mascot } from "@/components/mascot";
 import { FlowerGlyphIcon } from "@/components/flower-glyph-icon";
-import { DELIVERY_STOPS } from "@/data/delivery-stops";
+import { CarGlyph } from "@/components/delivery/car-glyph";
+import { SceneryDoodles } from "@/components/delivery/scenery-doodles";
+import { DELIVERY_FLOWERS } from "@/data/delivery-flowers";
 import { getFlower } from "@/data/flowers";
 import { useAccessibility } from "@/components/providers/accessibility-provider";
 
-const ROAD_D =
-  "M40,190 C140,60 220,300 340,190 C440,100 500,280 580,190 C660,110 700,260 770,170";
-const VIEW_W = 800;
-const VIEW_H = 320;
+const SCENE_W = 800;
+const SCENE_H = 460;
+const CAR_W = 44;
+const CAR_H = 26;
+const CAR_PAD = 24;
+const CAR_START = { x: 70, y: 230, angle: 0 };
 
-type Point = { x: number; y: number; angle: number };
+const MAX_SPEED = 230;
+const ACCEL = 3.4;
+const FRICTION = 2.8;
+const MAX_TURN_RATE = 175;
+const PICKUP_RADIUS = 32;
+const STEP = 42;
+
+type FlowerItem = { id: string; flowerId: string; x: number; y: number; collected: boolean };
+type Dir = "up" | "down" | "left" | "right";
+
+function clamp(v: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, v));
+}
+
+function normalizeKey(key: string): Dir | null {
+  switch (key) {
+    case "ArrowUp":
+    case "w":
+    case "W":
+      return "up";
+    case "ArrowDown":
+    case "s":
+    case "S":
+      return "down";
+    case "ArrowLeft":
+    case "a":
+    case "A":
+      return "left";
+    case "ArrowRight":
+    case "d":
+    case "D":
+      return "right";
+    default:
+      return null;
+  }
+}
+
+function initFlowers(): FlowerItem[] {
+  return DELIVERY_FLOWERS.map((f) => ({ ...f, collected: false }));
+}
 
 export function DeliveryScene() {
-  const [pathEl, setPathEl] = useState<SVGPathElement | null>(null);
-  const pathLength = useMemo(() => pathEl?.getTotalLength() ?? 0, [pathEl]);
-  const [progress, setProgress] = useState(0);
-  const progressRef = useRef(0);
-  const [stopIndex, setStopIndex] = useState(-1);
-  const [delivered, setDelivered] = useState<Set<string>>(new Set());
-  const [isDriving, setIsDriving] = useState(false);
   const { reducedMotion } = useAccessibility();
+  const [flowers, setFlowers] = useState<FlowerItem[]>(() => initFlowers());
+  const [hasFocused, setHasFocused] = useState(false);
 
-  const stopPoints = useMemo(() => {
-    if (!pathEl || pathLength === 0) return [];
-    return DELIVERY_STOPS.map((stop) => pointAt(pathEl, pathLength, stop.t));
-  }, [pathEl, pathLength]);
+  const carElRef = useRef<HTMLDivElement>(null);
+  const physicsRef = useRef({ ...CAR_START, speed: 0 });
+  const pressedKeysRef = useRef<Set<Dir>>(new Set());
+  const rafRef = useRef<number | null>(null);
+  const lastTimeRef = useRef<number | null>(null);
 
-  const carPoint: Point = useMemo(() => {
-    if (!pathEl || pathLength === 0) return { x: 40, y: 190, angle: 0 };
-    return pointAt(pathEl, pathLength, progress);
-  }, [pathEl, pathLength, progress]);
+  const totalCount = flowers.length;
+  const collectedCount = flowers.filter((f) => f.collected).length;
+  const allCollected = collectedCount === totalCount;
 
-  function driveTo(targetT: number, onArrive?: () => void) {
-    if (!pathLength) return;
-    setIsDriving(true);
-    animate(progressRef.current, targetT, {
-      duration: reducedMotion ? 0 : 1.1,
-      ease: [0.22, 1, 0.36, 1],
-      onUpdate: (v) => {
-        progressRef.current = v;
-        setProgress(v);
-      },
-      onComplete: () => {
-        setIsDriving(false);
-        onArrive?.();
-      },
+  const applyCarTransform = useCallback((x: number, y: number, angle: number) => {
+    if (carElRef.current) {
+      carElRef.current.style.transform = `translate(${(x - CAR_W / 2).toFixed(1)}px, ${(y - CAR_H / 2).toFixed(1)}px) rotate(${angle.toFixed(1)}deg)`;
+    }
+  }, []);
+
+  const checkPickups = useCallback((carX: number, carY: number) => {
+    setFlowers((prev) => {
+      let changed = false;
+      const next = prev.map((f) => {
+        if (f.collected) return f;
+        if (Math.hypot(f.x - carX, f.y - carY) < PICKUP_RADIUS) {
+          changed = true;
+          return { ...f, collected: true };
+        }
+        return f;
+      });
+      return changed ? next : prev;
     });
+  }, []);
+
+  // Continuous, physics-based driving — soft acceleration and gradual
+  // steering, running every frame regardless of reduced-motion so the loop
+  // itself is simple; the mode split happens in the input handlers below.
+  useEffect(() => {
+    if (reducedMotion) return;
+
+    function tick(now: number) {
+      if (lastTimeRef.current == null) lastTimeRef.current = now;
+      const dt = Math.min(0.05, (now - lastTimeRef.current) / 1000);
+      lastTimeRef.current = now;
+
+      const keys = pressedKeysRef.current;
+      const throttle = keys.has("up") ? 1 : keys.has("down") ? -1 : 0;
+      const steer = keys.has("left") ? -1 : keys.has("right") ? 1 : 0;
+
+      const p = physicsRef.current;
+      const targetSpeed = throttle * MAX_SPEED * (throttle < 0 ? 0.55 : 1);
+      const rate = Math.abs(targetSpeed) > Math.abs(p.speed) ? ACCEL : FRICTION;
+      p.speed += (targetSpeed - p.speed) * Math.min(1, rate * dt);
+      if (Math.abs(p.speed) < 1 && targetSpeed === 0) p.speed = 0;
+
+      if (p.speed !== 0) {
+        const speedFactor = 0.25 + 0.75 * Math.min(1, Math.abs(p.speed) / (MAX_SPEED * 0.6));
+        p.angle += steer * MAX_TURN_RATE * speedFactor * dt;
+        const rad = (p.angle * Math.PI) / 180;
+        p.x += Math.cos(rad) * p.speed * dt;
+        p.y += Math.sin(rad) * p.speed * dt;
+      } else if (steer !== 0) {
+        p.angle += steer * MAX_TURN_RATE * 0.3 * dt;
+      }
+
+      p.x = clamp(p.x, CAR_PAD, SCENE_W - CAR_PAD);
+      p.y = clamp(p.y, CAR_PAD, SCENE_H - CAR_PAD);
+
+      applyCarTransform(p.x, p.y, p.angle);
+      checkPickups(p.x, p.y);
+
+      rafRef.current = requestAnimationFrame(tick);
+    }
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      lastTimeRef.current = null;
+    };
+  }, [reducedMotion, applyCarTransform, checkPickups]);
+
+  function handleContinuousKeyDown(e: React.KeyboardEvent) {
+    const dir = normalizeKey(e.key);
+    if (!dir) return;
+    e.preventDefault();
+    pressedKeysRef.current.add(dir);
+    setHasFocused(true);
   }
 
-  function goNext() {
-    if (isDriving || stopIndex >= DELIVERY_STOPS.length - 1) return;
-    const nextIndex = stopIndex + 1;
-    const nextStop = DELIVERY_STOPS[nextIndex];
-    driveTo(nextStop.t, () => {
-      setStopIndex(nextIndex);
-      setDelivered((prev) => new Set(prev).add(nextStop.id));
-    });
+  function handleContinuousKeyUp(e: React.KeyboardEvent) {
+    const dir = normalizeKey(e.key);
+    if (!dir) return;
+    e.preventDefault();
+    pressedKeysRef.current.delete(dir);
   }
 
-  function goBack() {
-    if (isDriving || stopIndex < 0) return;
-    const prevIndex = stopIndex - 1;
-    const targetT = prevIndex >= 0 ? DELIVERY_STOPS[prevIndex].t : 0;
-    driveTo(targetT, () => setStopIndex(prevIndex));
+  function handleDiscreteKeyDown(e: React.KeyboardEvent) {
+    const dir = normalizeKey(e.key);
+    if (!dir) return;
+    e.preventDefault();
+    setHasFocused(true);
+
+    const p = physicsRef.current;
+    let { x, y } = p;
+    let angle = p.angle;
+    if (dir === "up") {
+      y -= STEP;
+      angle = -90;
+    } else if (dir === "down") {
+      y += STEP;
+      angle = 90;
+    } else if (dir === "left") {
+      x -= STEP;
+      angle = 180;
+    } else if (dir === "right") {
+      x += STEP;
+      angle = 0;
+    }
+    x = clamp(x, CAR_PAD, SCENE_W - CAR_PAD);
+    y = clamp(y, CAR_PAD, SCENE_H - CAR_PAD);
+
+    physicsRef.current = { x, y, angle, speed: 0 };
+    applyCarTransform(x, y, angle);
+    checkPickups(x, y);
   }
 
-  function resetRoute() {
-    if (isDriving) return;
-    driveTo(0, () => {
-      setStopIndex(-1);
-      setDelivered(new Set());
-    });
+  function handleReset() {
+    pressedKeysRef.current.clear();
+    physicsRef.current = { ...CAR_START, speed: 0 };
+    applyCarTransform(CAR_START.x, CAR_START.y, CAR_START.angle);
+    setFlowers(initFlowers());
   }
-
-  const allDelivered = delivered.size === DELIVERY_STOPS.length;
-  const currentStop = stopIndex >= 0 ? DELIVERY_STOPS[stopIndex] : null;
 
   return (
-    <div className="rounded-[2rem] bg-gradient-to-b from-[#241a33] to-[#160f22] p-5 sm:p-7">
-      <div className="relative w-full overflow-hidden rounded-3xl" style={{ aspectRatio: `${VIEW_W} / ${VIEW_H}` }}>
-        <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="absolute inset-0 h-full w-full">
-          <rect x="0" y="0" width={VIEW_W} height={VIEW_H} fill="#1c1428" />
-          {NIGHT_DOTS.map((d, i) => (
-            <circle key={i} cx={d.x} cy={d.y} r={d.r} fill="#EDE3FA" opacity={d.o} />
+    <div className="rounded-[2rem] bg-gradient-to-b from-accent/50 to-secondary/40 p-5 sm:p-7">
+      <div
+        tabIndex={0}
+        role="application"
+        aria-label="Flower delivery driving scene. Use arrow keys or W A S D to drive the car and collect flowers."
+        onKeyDown={reducedMotion ? handleDiscreteKeyDown : handleContinuousKeyDown}
+        onKeyUp={reducedMotion ? undefined : handleContinuousKeyUp}
+        onFocus={() => setHasFocused(true)}
+        onBlur={() => pressedKeysRef.current.clear()}
+        className="relative w-full touch-none overflow-hidden rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        style={{ aspectRatio: `${SCENE_W} / ${SCENE_H}` }}
+      >
+        <svg viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} className="absolute inset-0 h-full w-full">
+          <defs>
+            <radialGradient id="delivery-bg" cx="50%" cy="35%" r="80%">
+              <stop offset="0%" stopColor="#F3ECFF" />
+              <stop offset="100%" stopColor="#EFE6FB" />
+            </radialGradient>
+          </defs>
+          <rect x="0" y="0" width={SCENE_W} height={SCENE_H} fill="url(#delivery-bg)" />
+          {GRASS_DOTS.map((d, i) => (
+            <circle key={i} cx={d.x} cy={d.y} r={d.r} fill="#B9C7AE" opacity={d.o} />
           ))}
-          <path d="M700,40 A18 18 0 1 0 700,76 A13 13 0 1 1 700,40 Z" fill="#EDE3FA" opacity="0.85" />
-
-          <path
-            ref={setPathEl}
-            d={ROAD_D}
-            fill="none"
-            stroke="#4B3A63"
-            strokeWidth="10"
-            strokeLinecap="round"
-          />
-          <path
-            d={ROAD_D}
-            fill="none"
-            stroke="#C9B7E8"
-            strokeWidth="1.5"
-            strokeDasharray="6 10"
-            opacity="0.6"
-          />
-
-          {DELIVERY_STOPS.map((stop, i) => {
-            const p = stopPoints[i];
-            if (!p) return null;
-            const isDelivered = delivered.has(stop.id);
-            return (
-              <g key={stop.id} transform={`translate(${p.x} ${p.y})`}>
-                <circle
-                  r="10"
-                  fill={isDelivered ? "#7A5FA0" : "#2A2038"}
-                  stroke="#C9B7E8"
-                  strokeWidth="1.5"
-                  opacity={isDelivered ? 0.9 : 0.6}
-                />
-                <text
-                  y="-18"
-                  textAnchor="middle"
-                  fontSize="12"
-                  fill="#EDE3FA"
-                  opacity={isDelivered ? 0.95 : 0.55}
-                  fontFamily="Georgia, serif"
-                >
-                  {stop.title}
-                </text>
-              </g>
-            );
-          })}
+          <SceneryDoodles />
         </svg>
 
-        {pathLength > 0 && (
-          <div
-            className="absolute flex items-center justify-center"
-            style={{
-              left: `${(carPoint.x / VIEW_W) * 100}%`,
-              top: `${(carPoint.y / VIEW_H) * 100}%`,
-              transform: `translate(-50%, -50%) rotate(${carPoint.angle}deg)`,
-              width: 56,
-              height: 34,
-            }}
-          >
-            <CarGlyph />
-          </div>
-        )}
-      </div>
+        {flowers
+          .filter((f) => !f.collected)
+          .map((f) => {
+            const flower = getFlower(f.flowerId);
+            if (!flower) return null;
+            return (
+              <div
+                key={f.id}
+                className="pointer-events-none absolute"
+                style={{
+                  left: `${(f.x / SCENE_W) * 100}%`,
+                  top: `${(f.y / SCENE_H) * 100}%`,
+                  marginLeft: -20,
+                  marginTop: -20,
+                }}
+              >
+                <AnimatePresence>
+                  <motion.div
+                    key={f.id}
+                    className="flex items-center justify-center rounded-full bg-white/60 shadow-sm"
+                    style={{ width: 40, height: 40 }}
+                    initial={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 1.7 }}
+                    transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <FlowerGlyphIcon flower={flower} size={34} />
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+            );
+          })}
 
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10"
-          onClick={goBack}
-          disabled={isDriving || stopIndex < 0}
+        <div
+          ref={carElRef}
+          className="pointer-events-none absolute left-0 top-0"
+          style={{
+            width: CAR_W,
+            height: CAR_H,
+            transform: `translate(${CAR_START.x - CAR_W / 2}px, ${CAR_START.y - CAR_H / 2}px) rotate(${CAR_START.angle}deg)`,
+          }}
         >
-          <ArrowLeft className="size-3.5" aria-hidden="true" />
-          Back a stop
+          <CarGlyph size={CAR_W} />
+        </div>
+
+        {!hasFocused && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
+            <p className="rounded-full bg-card px-5 py-2.5 text-sm text-foreground shadow-sm">
+              Click here, then drive with the arrow keys or W A S D
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {flowers.map((f) => {
+            const flower = getFlower(f.flowerId);
+            if (!flower) return null;
+            return (
+              <div
+                key={f.id}
+                className={f.collected ? "opacity-100" : "opacity-30 grayscale"}
+                aria-hidden="true"
+              >
+                <FlowerGlyphIcon flower={flower} size={26} />
+              </div>
+            );
+          })}
+        </div>
+        <Button variant="ghost" size="sm" className="rounded-full text-muted-foreground" onClick={handleReset}>
+          <RotateCcw className="size-3.5" aria-hidden="true" />
+          Reset scene
         </Button>
-        {!allDelivered ? (
-          <Button size="sm" className="rounded-full" onClick={goNext} disabled={isDriving}>
-            Drive to the next stop
-            <ArrowRight className="size-3.5" aria-hidden="true" />
-          </Button>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10"
-            onClick={resetRoute}
-            disabled={isDriving}
-          >
-            <RotateCcw className="size-3.5" aria-hidden="true" />
-            Drive the route again
-          </Button>
-        )}
       </div>
 
-      <div className="mt-6 min-h-[92px] rounded-2xl bg-white/5 p-5" aria-live="polite">
-        {allDelivered ? (
+      <p className="sr-only" aria-live="polite">
+        {collectedCount} of {totalCount} flowers collected.
+        {allCollected ? " All flowers delivered." : ""}
+      </p>
+
+      <div className="mt-4 min-h-[64px] rounded-2xl bg-card/70 p-5" aria-live="polite">
+        {allCollected ? (
           <div className="flex items-center gap-4">
-            <Mascot size={56} mood="idle" />
-            <p className="font-heading text-base text-white/90">
-              Every flower found where it needed to go. No rush to do it again — but you can,
-              whenever you like.
+            <Mascot size={48} mood="idle" />
+            <p className="font-heading text-base text-foreground/90">
+              All delivered. No rush to do it again — but you can, whenever you like.
             </p>
           </div>
-        ) : currentStop ? (
-          <DeliveredCard stopTitle={currentStop.title} flowerId={currentStop.flowerId} note={currentStop.note} />
         ) : (
-          <div className="flex items-center gap-4">
-            <Mascot size={56} mood="sleepy" />
-            <p className="text-sm leading-relaxed text-white/70">
-              A quiet road, a few flowers, nowhere you have to be. Drive whenever you&rsquo;re ready
-              — there&rsquo;s no timer and no wrong way to do this.
-            </p>
-          </div>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {collectedCount} of {totalCount} flowers collected. Drive over one to pick it up —
+            there&rsquo;s no timer and no wrong way to do this.
+          </p>
         )}
       </div>
     </div>
   );
 }
 
-function DeliveredCard({ stopTitle, flowerId, note }: { stopTitle: string; flowerId: string; note: string }) {
-  const flower = getFlower(flowerId);
-  if (!flower) return null;
-  return (
-    <div className="flex items-center gap-4">
-      <div className="rounded-2xl bg-white/10 p-2">
-        <FlowerGlyphIcon flower={flower} size={44} />
-      </div>
-      <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-white/50">
-          Delivered to {stopTitle}
-        </p>
-        <p className="mt-1 font-heading text-base text-white/90">{note}</p>
-      </div>
-    </div>
-  );
-}
-
-function CarGlyph() {
-  return (
-    <svg width="56" height="34" viewBox="0 0 56 34" aria-hidden="true">
-      <ellipse cx="28" cy="30" rx="20" ry="2.5" fill="#000" opacity="0.25" />
-      <rect x="6" y="12" width="44" height="14" rx="7" fill="#7A5FA0" />
-      <path d="M16 12 C18 4 38 4 40 12 Z" fill="#4B3A63" />
-      <circle cx="24" cy="10" r="4.6" fill="#2A2038" />
-      <circle cx="27.3" cy="8.7" r="0.7" fill="#EDE3FA" />
-      <circle cx="20.7" cy="8.7" r="0.7" fill="#EDE3FA" />
-      <path d="M22 12.5 Q24 14 26 12.5" stroke="#EDE3FA" strokeWidth="0.9" fill="none" strokeLinecap="round" />
-      <circle cx="14" cy="27" r="4.4" fill="#1c1428" />
-      <circle cx="42" cy="27" r="4.4" fill="#1c1428" />
-      <circle cx="14" cy="27" r="1.7" fill="#C9B7E8" />
-      <circle cx="42" cy="27" r="1.7" fill="#C9B7E8" />
-    </svg>
-  );
-}
-
-const NIGHT_DOTS = [
-  { x: 60, y: 30, r: 1.4, o: 0.7 },
-  { x: 120, y: 60, r: 1, o: 0.5 },
-  { x: 220, y: 24, r: 1.6, o: 0.8 },
-  { x: 300, y: 50, r: 1, o: 0.4 },
-  { x: 380, y: 20, r: 1.2, o: 0.6 },
-  { x: 460, y: 46, r: 1, o: 0.45 },
-  { x: 540, y: 22, r: 1.5, o: 0.7 },
-  { x: 610, y: 55, r: 1, o: 0.4 },
-  { x: 90, y: 90, r: 1, o: 0.35 },
-  { x: 260, y: 100, r: 1.1, o: 0.4 },
-  { x: 430, y: 90, r: 1, o: 0.35 },
-  { x: 600, y: 100, r: 1.2, o: 0.4 },
+const GRASS_DOTS = [
+  { x: 60, y: 220, r: 2.2, o: 0.5 },
+  { x: 260, y: 60, r: 1.8, o: 0.4 },
+  { x: 340, y: 300, r: 2, o: 0.45 },
+  { x: 500, y: 90, r: 1.6, o: 0.4 },
+  { x: 580, y: 300, r: 2.2, o: 0.5 },
+  { x: 730, y: 220, r: 1.8, o: 0.4 },
+  { x: 200, y: 400, r: 1.6, o: 0.35 },
+  { x: 450, y: 40, r: 1.4, o: 0.35 },
+  { x: 660, y: 60, r: 1.8, o: 0.4 },
+  { x: 120, y: 130, r: 1.4, o: 0.35 },
 ];
-
-function pointAt(path: SVGPathElement, totalLength: number, t: number): Point {
-  const len = Math.min(totalLength, Math.max(0, t * totalLength));
-  const p = path.getPointAtLength(len);
-  const ahead = path.getPointAtLength(Math.min(totalLength, len + 1));
-  const angle = (Math.atan2(ahead.y - p.y, ahead.x - p.x) * 180) / Math.PI;
-  return { x: p.x, y: p.y, angle };
-}

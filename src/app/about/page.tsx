@@ -68,7 +68,8 @@ export default function AboutPage() {
           <Link href="/delivery" className="text-primary underline decoration-dotted underline-offset-4 hover:text-primary/80">
             Flower Delivery
           </Link>{" "}
-          — a small drive with a few stops along the way. No scores, no timers, nothing to lose.
+          — drive a small purple car around and pick up flowers as you go. No scores, no timers,
+          nothing to lose.
         </p>
       </FadeIn>
     </div>

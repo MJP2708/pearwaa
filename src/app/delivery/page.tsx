@@ -4,7 +4,7 @@ import { FadeIn } from "@/components/motion/fade-in";
 
 export const metadata: Metadata = {
   title: "Flower Delivery — Pearwaa",
-  description: "A small, unhurried drive delivering flowers along the way. No scores, no timers.",
+  description: "Drive a small purple car around and pick up flowers, at your own pace. No scores, no timers.",
 };
 
 export default function DeliveryPage() {
@@ -16,8 +16,8 @@ export default function DeliveryPage() {
           Flower Delivery
         </h1>
         <p className="mt-3 max-w-xl text-base leading-relaxed text-muted-foreground">
-          Nothing to win here, nothing to lose. Drive along, drop off a flower wherever it seems
-          to belong, and stop whenever you&rsquo;ve had enough.
+          Nothing to win here, nothing to lose. Drive the car around with the arrow keys or
+          W A S D, roll over a flower to pick it up, and stop whenever you&rsquo;ve had enough.
         </p>
       </FadeIn>
 

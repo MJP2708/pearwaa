@@ -1,16 +1,50 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import { flowers, getFlower } from "@/data/flowers";
 import { emotions } from "@/data/emotions";
 import { FlowerGlyphIcon } from "@/components/flower-glyph-icon";
 import { BloomStoryDialog } from "@/components/bloom-story-dialog";
+import { SecretRoom } from "@/components/easter-egg/secret-room";
 import { FadeIn } from "@/components/motion/fade-in";
 import { cn } from "@/lib/utils";
+
+// Quietly tucked in: five clicks on this one flower within the window below
+// opens a private note instead of its bloom story. No hint anywhere in the
+// UI — the four ordinary clicks before it behave completely normally.
+const SECRET_FLOWER_ID = "forget-me-not";
+const SECRET_CLICK_COUNT = 5;
+const SECRET_WINDOW_MS = 6000;
+
+/** Module-level (not component-nested) so the Date.now() call here doesn't
+ * trip the "components must be pure" lint rule — this only ever runs from
+ * inside a click handler, never during render. */
+function registerSecretClick(ref: { current: number[] }): boolean {
+  const now = Date.now();
+  const recent = ref.current.filter((t) => now - t < SECRET_WINDOW_MS);
+  recent.push(now);
+  ref.current = recent;
+  if (recent.length >= SECRET_CLICK_COUNT) {
+    ref.current = [];
+    return true;
+  }
+  return false;
+}
 
 export default function ExplorePage() {
   const [filter, setFilter] = useState<string>("all");
   const [activeFlowerId, setActiveFlowerId] = useState<string | null>(null);
+  const [secretOpen, setSecretOpen] = useState(false);
+  const secretClicksRef = useRef<number[]>([]);
+
+  function handleFlowerClick(flowerId: string) {
+    if (flowerId === SECRET_FLOWER_ID && registerSecretClick(secretClicksRef)) {
+      setSecretOpen(true);
+      return;
+    }
+    setActiveFlowerId(flowerId);
+  }
 
   const visible = useMemo(
     () => (filter === "all" ? flowers : flowers.filter((f) => f.emotions.includes(filter as never))),
@@ -70,7 +104,7 @@ export default function ExplorePage() {
             <FadeIn delay={Math.min(i * 0.03, 0.3)}>
               <button
                 type="button"
-                onClick={() => setActiveFlowerId(flower.id)}
+                onClick={() => handleFlowerClick(flower.id)}
                 className="flex h-full w-full flex-col items-center gap-2 rounded-2xl border border-border/70 bg-card px-4 py-5 text-center transition-colors hover:border-primary/40 hover:bg-accent/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 <FlowerGlyphIcon flower={flower} size={56} />
@@ -91,6 +125,8 @@ export default function ExplorePage() {
         open={Boolean(activeFlower)}
         onOpenChange={(o) => !o && setActiveFlowerId(null)}
       />
+
+      <AnimatePresence>{secretOpen && <SecretRoom onClose={() => setSecretOpen(false)} />}</AnimatePresence>
     </div>
   );
 }
