@@ -11,6 +11,16 @@ import { EmotionPicker } from "@/components/create/emotion-picker";
 import { BouquetBuilder } from "@/components/create/bouquet-builder";
 import { getEmotion, type Emotion } from "@/data/emotions";
 import { getFlowersByEmotion } from "@/data/flowers";
+import { computePlacementPoint } from "@/lib/bouquet-layout";
+import type { FlowerPlacement } from "@/lib/export-image";
+
+function createInitialPlacements(flowerIds: string[]): FlowerPlacement[] {
+  return flowerIds.map((flowerId, i) => {
+    const { x, y, scale } = computePlacementPoint(i);
+    const key = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${flowerId}-${i}-${Date.now()}`;
+    return { key, flowerId, x, y, scale };
+  });
+}
 
 type Step = "intro" | "questions" | "reveal" | "manual" | "bouquet" | "message" | "card";
 
@@ -25,7 +35,7 @@ export default function WordsAreHardPage() {
   const [history, setHistory] = useState<Step[]>(["intro"]);
   const [emotion, setEmotion] = useState<Emotion | null>(null);
   const [label, setLabel] = useState("");
-  const [flowerIds, setFlowerIds] = useState<string[]>([]);
+  const [placements, setPlacements] = useState<FlowerPlacement[]>([]);
   const [message, setMessage] = useState("");
 
   const step = history[history.length - 1];
@@ -42,14 +52,15 @@ export default function WordsAreHardPage() {
     setHistory(["intro"]);
     setEmotion(null);
     setLabel("");
-    setFlowerIds([]);
+    setPlacements([]);
     setMessage("");
   }
 
   function applyEmotion(next: Emotion, nextLabel: string) {
     setEmotion(next);
     setLabel(nextLabel);
-    setFlowerIds(getFlowersByEmotion(next.id).slice(0, 3).map((f) => f.id));
+    const starterIds = getFlowersByEmotion(next.id).slice(0, 3).map((f) => f.id);
+    setPlacements(createInitialPlacements(starterIds));
   }
 
   return (
@@ -97,8 +108,8 @@ export default function WordsAreHardPage() {
               stepLabel="Step 3 of 5"
               emotion={emotion}
               label={label}
-              flowerIds={flowerIds}
-              onChangeFlowerIds={setFlowerIds}
+              placements={placements}
+              onChangePlacements={setPlacements}
               onBack={back}
               onContinue={() => push("message")}
             />
@@ -113,7 +124,13 @@ export default function WordsAreHardPage() {
 
         {step === "card" && emotion && (
           <motion.div key="card" {...stepTransition}>
-            <ShareCardStep emotion={emotion} flowerIds={flowerIds} message={message} onBack={back} onRestart={restart} />
+            <ShareCardStep
+              emotion={emotion}
+              flowerIds={placements.map((p) => p.flowerId)}
+              message={message}
+              onBack={back}
+              onRestart={restart}
+            />
           </motion.div>
         )}
       </AnimatePresence>

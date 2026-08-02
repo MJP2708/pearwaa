@@ -1,6 +1,5 @@
 import { getFlower } from "@/data/flowers";
 import { composeBouquetSvg } from "./bouquet-svg";
-import { computeBouquetLayout } from "./bouquet-layout";
 import { flowerGlyphMarkup } from "./flower-glyph";
 import { lightenHex } from "./color";
 
@@ -42,20 +41,6 @@ export const SHARE_CARD_SIZE = { width: 1080, height: 1350 };
  * independent axes, so they survive changes in aspect ratio without
  * distorting. Render order in the array *is* z-order (last = frontmost). */
 export type FlowerPlacement = { key: string; flowerId: string; x: number; y: number; scale: number };
-
-/** Sensible starting positions for the draggable wallpaper editor — reuses
- * the bouquet's phyllotaxis cluster as a pleasant default arrangement that
- * the user can then drag apart. */
-export function defaultPlacements(flowerIds: string[]): FlowerPlacement[] {
-  const layout = computeBouquetLayout(flowerIds, { centerX: 50, centerY: 50, spread: 11 });
-  return layout.map((item, i) => ({
-    key: `${item.flowerId}-${i}`,
-    flowerId: item.flowerId,
-    x: item.cx,
-    y: item.cy,
-    scale: item.scale,
-  }));
-}
 
 /** Note: exported SVGs deliberately use generic font stacks, not the
  * app's webfonts — a blob-URL <img> renders in an isolated context that

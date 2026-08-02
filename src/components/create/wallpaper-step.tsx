@@ -5,13 +5,12 @@ import { ArrowLeft, Download, RotateCcw, SendToBack, BringToFront } from "lucide
 import { Button } from "@/components/ui/button";
 import {
   buildWallpaperSvgFromPlacements,
-  defaultPlacements,
   svgToPngBlob,
   downloadBlob,
   WALLPAPER_SIZES,
   type FlowerPlacement,
 } from "@/lib/export-image";
-import { WallpaperCanvasEditor } from "@/components/create/wallpaper-canvas-editor";
+import { FlowerLayoutCanvas } from "@/components/create/flower-layout-canvas";
 import { Mascot } from "@/components/mascot";
 import type { Emotion } from "@/data/emotions";
 import { cn } from "@/lib/utils";
@@ -19,15 +18,18 @@ import { cn } from "@/lib/utils";
 type Props = {
   emotion: Emotion;
   label: string;
-  flowerIds: string[];
+  /** The layout built in the Bouquet Builder — inherited as a starting
+   * point here, not re-clustered. Edits made below are this step's own
+   * downstream copy and never write back to the bouquet's saved layout. */
+  bouquetPlacements: FlowerPlacement[];
   onBack: () => void;
   onRestart: () => void;
 };
 
-export function WallpaperStep({ emotion, label, flowerIds, onBack, onRestart }: Props) {
+export function WallpaperStep({ emotion, label, bouquetPlacements, onBack, onRestart }: Props) {
   const [sizeId, setSizeId] = useState(WALLPAPER_SIZES[0].id);
   const [includeLabel, setIncludeLabel] = useState(true);
-  const [placements, setPlacements] = useState<FlowerPlacement[]>(() => defaultPlacements(flowerIds));
+  const [placements, setPlacements] = useState<FlowerPlacement[]>(() => bouquetPlacements.map((p) => ({ ...p })));
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export function WallpaperStep({ emotion, label, flowerIds, onBack, onRestart }: 
   }
 
   function resetArrangement() {
-    setPlacements(defaultPlacements(flowerIds));
+    setPlacements(bouquetPlacements.map((p) => ({ ...p })));
     setSelectedKey(null);
   }
 
@@ -81,7 +83,8 @@ export function WallpaperStep({ emotion, label, flowerIds, onBack, onRestart }: 
       <p className="text-sm font-medium text-primary">Step 3 of 3</p>
       <h1 className="mt-2 font-heading text-3xl font-normal text-foreground sm:text-4xl">Take it with you</h1>
       <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-        Drag each flower wherever feels right. Choose a size, then arrange it as your own.
+        This is the bouquet you built, ready as a wallpaper. Nudge anything further before you
+        save it — choose a size first.
       </p>
 
       <div className="mt-7 flex flex-wrap gap-2" role="group" aria-label="Wallpaper size">
@@ -114,7 +117,7 @@ export function WallpaperStep({ emotion, label, flowerIds, onBack, onRestart }: 
       </label>
 
       <div className="mx-auto mt-6" style={{ maxWidth: size.width >= size.height ? 480 : 280 }}>
-        <WallpaperCanvasEditor
+        <FlowerLayoutCanvas
           placements={placements}
           onChangePlacements={setPlacements}
           selectedKey={selectedKey}
@@ -135,7 +138,7 @@ export function WallpaperStep({ emotion, label, flowerIds, onBack, onRestart }: 
           Send to back
         </Button>
         <Button variant="ghost" size="sm" className="rounded-full text-muted-foreground" onClick={resetArrangement}>
-          Reset arrangement
+          Reset to bouquet layout
         </Button>
       </div>
       <p className="mt-2 text-center text-xs text-muted-foreground">

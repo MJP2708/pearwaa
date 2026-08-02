@@ -1,22 +1,31 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Minus, Plus } from "lucide-react";
+import { ArrowLeft, ArrowRight, BringToFront, Minus, Plus, SendToBack } from "lucide-react";
 import { flowers, getFlower, getFlowersByEmotion } from "@/data/flowers";
 import type { Emotion } from "@/data/emotions";
 import { Button } from "@/components/ui/button";
-import { BouquetCanvas } from "@/components/bouquet-canvas";
+import { FlowerLayoutCanvas } from "@/components/create/flower-layout-canvas";
 import { FlowerGlyphIcon } from "@/components/flower-glyph-icon";
 import { BloomStoryDialog } from "@/components/bloom-story-dialog";
+import { Mascot } from "@/components/mascot";
+import { computePlacementPoint } from "@/lib/bouquet-layout";
+import type { FlowerPlacement } from "@/lib/export-image";
 import { cn } from "@/lib/utils";
 
 const MAX_FLOWERS = 12;
 
+function createPlacement(flowerId: string, index: number): FlowerPlacement {
+  const { x, y, scale } = computePlacementPoint(index);
+  const key = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${flowerId}-${index}-${Date.now()}`;
+  return { key, flowerId, x, y, scale };
+}
+
 type Props = {
   emotion: Emotion;
   label: string;
-  flowerIds: string[];
-  onChangeFlowerIds: (ids: string[]) => void;
+  placements: FlowerPlacement[];
+  onChangePlacements: (next: FlowerPlacement[]) => void;
   onBack: () => void;
   onContinue: () => void;
   stepLabel?: string;
@@ -25,37 +34,54 @@ type Props = {
 export function BouquetBuilder({
   emotion,
   label,
-  flowerIds,
-  onChangeFlowerIds,
+  placements,
+  onChangePlacements,
   onBack,
   onContinue,
   stepLabel = "Step 2 of 3",
 }: Props) {
   const [showAll, setShowAll] = useState(false);
   const [activeFlowerId, setActiveFlowerId] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const suggested = useMemo(() => getFlowersByEmotion(emotion.id), [emotion.id]);
   const palette = showAll ? flowers : suggested;
 
   const counts = useMemo(() => {
     const map = new Map<string, number>();
-    for (const id of flowerIds) map.set(id, (map.get(id) ?? 0) + 1);
+    for (const p of placements) map.set(p.flowerId, (map.get(p.flowerId) ?? 0) + 1);
     return map;
-  }, [flowerIds]);
+  }, [placements]);
 
-  const atCapacity = flowerIds.length >= MAX_FLOWERS;
+  const atCapacity = placements.length >= MAX_FLOWERS;
 
   function addFlower(id: string) {
     if (atCapacity) return;
-    onChangeFlowerIds([...flowerIds, id]);
+    onChangePlacements([...placements, createPlacement(id, placements.length)]);
   }
 
   function removeOne(id: string) {
-    const idx = flowerIds.lastIndexOf(id);
+    const idx = [...placements].reverse().findIndex((p) => p.flowerId === id);
     if (idx === -1) return;
-    const next = [...flowerIds];
-    next.splice(idx, 1);
-    onChangeFlowerIds(next);
+    const realIdx = placements.length - 1 - idx;
+    const removed = placements[realIdx];
+    const next = placements.filter((_, i) => i !== realIdx);
+    onChangePlacements(next);
+    if (removed.key === selectedKey) setSelectedKey(null);
+  }
+
+  function bringToFront() {
+    if (!selectedKey) return;
+    const item = placements.find((p) => p.key === selectedKey);
+    if (!item) return;
+    onChangePlacements([...placements.filter((p) => p.key !== selectedKey), item]);
+  }
+
+  function sendToBack() {
+    if (!selectedKey) return;
+    const item = placements.find((p) => p.key === selectedKey);
+    if (!item) return;
+    onChangePlacements([item, ...placements.filter((p) => p.key !== selectedKey)]);
   }
 
   const activeFlower = activeFlowerId ? getFlower(activeFlowerId) ?? null : null;
@@ -113,13 +139,36 @@ export function BouquetBuilder({
         </div>
 
         <div>
-          <div className="rounded-3xl border border-border/70 bg-card p-5">
-            <BouquetCanvas
-              flowerIds={flowerIds}
-              onFlowerActivate={flowerIds.length > 0 ? setActiveFlowerId : undefined}
-              emptyHint="Choose flowers from the left to begin your bouquet."
-            />
-          </div>
+          {placements.length === 0 ? (
+            <div className="mx-auto flex aspect-square w-full max-w-md flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-border bg-secondary/40 p-8 text-center">
+              <Mascot size={56} mood="sleepy" className="opacity-80" />
+              <p className="max-w-[26ch] text-sm text-muted-foreground">
+                Choose flowers from the left to begin your bouquet.
+              </p>
+            </div>
+          ) : (
+            <>
+              <FlowerLayoutCanvas
+                placements={placements}
+                onChangePlacements={onChangePlacements}
+                selectedKey={selectedKey}
+                onSelectKey={setSelectedKey}
+                accentHex={emotion.colorHex}
+                aspectRatio="1 / 1"
+                onFlowerTap={(flowerId) => setActiveFlowerId(flowerId)}
+              />
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Button variant="outline" size="sm" className="rounded-full" onClick={bringToFront} disabled={!selectedKey}>
+                  <BringToFront className="size-3.5" aria-hidden="true" />
+                  Bring to front
+                </Button>
+                <Button variant="outline" size="sm" className="rounded-full" onClick={sendToBack} disabled={!selectedKey}>
+                  <SendToBack className="size-3.5" aria-hidden="true" />
+                  Send to back
+                </Button>
+              </div>
+            </>
+          )}
 
           {counts.size > 0 && (
             <ul className="mt-4 flex flex-wrap gap-2" aria-label="Flowers in your bouquet">
@@ -158,9 +207,11 @@ export function BouquetBuilder({
               })}
             </ul>
           )}
-          <p className="mt-2 text-xs text-muted-foreground">
-            Tip: click a flower in your bouquet above to read its bloom story.
-          </p>
+          {placements.length > 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Drag a flower to move it, tap to read its bloom story.
+            </p>
+          )}
         </div>
       </div>
 
@@ -169,7 +220,7 @@ export function BouquetBuilder({
           <ArrowLeft className="size-4" aria-hidden="true" />
           Back
         </Button>
-        <Button size="lg" className="rounded-full px-7" disabled={flowerIds.length === 0} onClick={onContinue}>
+        <Button size="lg" className="rounded-full px-7" disabled={placements.length === 0} onClick={onContinue}>
           Continue
           <ArrowRight className="size-4" aria-hidden="true" />
         </Button>

@@ -6,6 +6,7 @@ import { EmotionPicker } from "@/components/create/emotion-picker";
 import { BouquetBuilder } from "@/components/create/bouquet-builder";
 import { WallpaperStep } from "@/components/create/wallpaper-step";
 import type { Emotion } from "@/data/emotions";
+import type { FlowerPlacement } from "@/lib/export-image";
 
 type Step = "feeling" | "bouquet" | "wallpaper";
 
@@ -20,13 +21,13 @@ export default function CreatePage() {
   const [step, setStep] = useState<Step>("feeling");
   const [emotion, setEmotion] = useState<Emotion | null>(null);
   const [label, setLabel] = useState("");
-  const [flowerIds, setFlowerIds] = useState<string[]>([]);
+  const [placements, setPlacements] = useState<FlowerPlacement[]>([]);
 
   function reset() {
     setStep("feeling");
     setEmotion(null);
     setLabel("");
-    setFlowerIds([]);
+    setPlacements([]);
   }
 
   return (
@@ -49,8 +50,8 @@ export default function CreatePage() {
             <BouquetBuilder
               emotion={emotion}
               label={label}
-              flowerIds={flowerIds}
-              onChangeFlowerIds={setFlowerIds}
+              placements={placements}
+              onChangePlacements={setPlacements}
               onBack={() => setStep("feeling")}
               onContinue={() => setStep("wallpaper")}
             />
@@ -62,7 +63,7 @@ export default function CreatePage() {
             <WallpaperStep
               emotion={emotion}
               label={label}
-              flowerIds={flowerIds}
+              bouquetPlacements={placements}
               onBack={() => setStep("bouquet")}
               onRestart={reset}
             />

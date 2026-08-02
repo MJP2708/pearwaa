@@ -8,23 +8,29 @@ const GOLDEN_ANGLE = 137.508;
 
 export type BouquetItem = { flowerId: string; cx: number; cy: number; scale: number };
 export type FillerDot = { cx: number; cy: number; r: number };
+export type PlacementOpts = { centerX?: number; centerY?: number; spread?: number };
 
-export function computeBouquetLayout(
-  flowerIds: string[],
-  opts?: { centerX?: number; centerY?: number; spread?: number },
-): BouquetItem[] {
+/** Position + scale for the nth flower in the spiral — exposed on its own
+ * so callers can compute a single new point (e.g. "where should the next
+ * flower a person adds land") without recomputing a whole layout. */
+export function computePlacementPoint(index: number, opts?: PlacementOpts): { x: number; y: number; scale: number } {
   const centerX = opts?.centerX ?? 50;
   const centerY = opts?.centerY ?? 52;
   const spread = opts?.spread ?? 9;
 
+  const angle = index * GOLDEN_ANGLE;
+  const radius = spread * Math.sqrt(index);
+  const rad = (angle * Math.PI) / 180;
+  const x = centerX + Math.cos(rad) * radius;
+  const y = centerY + Math.sin(rad) * radius * 0.9;
+  const scale = Math.max(0.55, 1 - radius / 38);
+  return { x, y, scale };
+}
+
+export function computeBouquetLayout(flowerIds: string[], opts?: PlacementOpts): BouquetItem[] {
   return flowerIds.map((flowerId, i) => {
-    const angle = i * GOLDEN_ANGLE;
-    const radius = spread * Math.sqrt(i);
-    const rad = (angle * Math.PI) / 180;
-    const cx = centerX + Math.cos(rad) * radius;
-    const cy = centerY + Math.sin(rad) * radius * 0.9;
-    const scale = Math.max(0.55, 1 - radius / 38);
-    return { flowerId, cx, cy, scale };
+    const { x, y, scale } = computePlacementPoint(i, opts);
+    return { flowerId, cx: x, cy: y, scale };
   });
 }
 
