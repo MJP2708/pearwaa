@@ -1,0 +1,76 @@
+"use client";
+
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+
+const STARTERS = [
+  "I'm not okay, but I will be.",
+  "I don't have the words, but I wanted you to have this.",
+  "Thinking of you today.",
+  "I'm sorry. I mean that.",
+  "Thank you for staying.",
+];
+
+const MAX_LENGTH = 200;
+
+export function MessageStep({
+  message,
+  onChangeMessage,
+  onBack,
+  onContinue,
+}: {
+  message: string;
+  onChangeMessage: (v: string) => void;
+  onBack: () => void;
+  onContinue: () => void;
+}) {
+  return (
+    <div className="mx-auto max-w-xl">
+      <p className="text-sm font-medium text-primary">Step 4 of 5</p>
+      <h1 className="mt-2 font-heading text-3xl font-normal text-foreground sm:text-4xl">
+        Say as much or as little as you want
+      </h1>
+      <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+        This part is optional. The bouquet can speak for itself if you&rsquo;d rather it did.
+      </p>
+
+      <Textarea
+        value={message}
+        onChange={(e) => onChangeMessage(e.target.value.slice(0, MAX_LENGTH))}
+        placeholder="You don't have to explain. Just this is enough."
+        maxLength={MAX_LENGTH}
+        rows={4}
+        aria-label="Your message"
+        className="mt-6 resize-none rounded-2xl text-base"
+      />
+      <p className="mt-1.5 text-right text-xs text-muted-foreground">
+        {message.length}/{MAX_LENGTH}
+      </p>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {STARTERS.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => onChangeMessage(s)}
+            className="rounded-full border border-border/70 px-3.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent/30 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-9 flex justify-between">
+        <Button variant="ghost" size="lg" className="rounded-full px-6" onClick={onBack}>
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          Back
+        </Button>
+        <Button size="lg" className="rounded-full px-7" onClick={onContinue}>
+          Continue
+          <ArrowRight className="size-4" aria-hidden="true" />
+        </Button>
+      </div>
+    </div>
+  );
+}
