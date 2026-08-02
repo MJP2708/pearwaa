@@ -1,4 +1,7 @@
+import { getFlower } from "@/data/flowers";
 import { composeBouquetSvg } from "./bouquet-svg";
+import { computeBouquetLayout } from "./bouquet-layout";
+import { flowerGlyphMarkup } from "./flower-glyph";
 import { lightenHex } from "./color";
 
 const INK = "#3A3350";
@@ -34,22 +37,54 @@ export const WALLPAPER_SIZES: WallpaperSize[] = [
 
 export const SHARE_CARD_SIZE = { width: 1080, height: 1350 };
 
+/** A single flower's user-controlled position on the wallpaper canvas.
+ * `x`/`y` are percentages (0-100) of the canvas width/height respectively —
+ * independent axes, so they survive changes in aspect ratio without
+ * distorting. Render order in the array *is* z-order (last = frontmost). */
+export type FlowerPlacement = { key: string; flowerId: string; x: number; y: number; scale: number };
+
+/** Sensible starting positions for the draggable wallpaper editor — reuses
+ * the bouquet's phyllotaxis cluster as a pleasant default arrangement that
+ * the user can then drag apart. */
+export function defaultPlacements(flowerIds: string[]): FlowerPlacement[] {
+  const layout = computeBouquetLayout(flowerIds, { centerX: 50, centerY: 50, spread: 11 });
+  return layout.map((item, i) => ({
+    key: `${item.flowerId}-${i}`,
+    flowerId: item.flowerId,
+    x: item.cx,
+    y: item.cy,
+    scale: item.scale,
+  }));
+}
+
 /** Note: exported SVGs deliberately use generic font stacks, not the
  * app's webfonts — a blob-URL <img> renders in an isolated context that
  * can't see the page's @font-face rules, so a custom-font reference would
  * just silently fall back anyway. */
-export function buildWallpaperSvg(
-  flowerIds: string[],
+export function buildWallpaperSvgFromPlacements(
+  placements: FlowerPlacement[],
   opts: { width: number; height: number; accentHex: string; label?: string },
 ): string {
   const { width, height, accentHex, label } = opts;
-  const bouquetSize = Math.min(width, height) * 0.6;
-  const bx = (width - bouquetSize) / 2;
-  const by = height * 0.5 - bouquetSize / 2 - height * 0.03;
-  const bouquetSvg = composeBouquetSvg(flowerIds, { size: bouquetSize, interactive: false });
+  const baseLength = Math.min(width, height) * 0.09;
+
+  const flowerMarkup = placements
+    .map((p, i) => {
+      const flower = getFlower(p.flowerId);
+      if (!flower) return "";
+      return flowerGlyphMarkup(flower, {
+        cx: (p.x / 100) * width,
+        cy: (p.y / 100) * height,
+        scale: p.scale,
+        baseLength,
+        instanceId: `${p.key}-${i}`,
+        interactive: false,
+      });
+    })
+    .join("\n");
 
   const labelMarkup = label
-    ? `<text x="${width / 2}" y="${(by + bouquetSize + height * 0.07).toFixed(1)}" text-anchor="middle" font-family="Georgia, serif" font-size="${(height * 0.024).toFixed(1)}" fill="${INK}" opacity="0.7">${escapeXml(label)}</text>`
+    ? `<text x="${width / 2}" y="${(height * 0.93).toFixed(1)}" text-anchor="middle" font-family="Georgia, serif" font-size="${(height * 0.024).toFixed(1)}" fill="${INK}" opacity="0.7">${escapeXml(label)}</text>`
     : "";
 
   return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
@@ -60,7 +95,7 @@ export function buildWallpaperSvg(
       </radialGradient>
     </defs>
     <rect x="0" y="0" width="${width}" height="${height}" fill="url(#wp-bg)" />
-    <g transform="translate(${bx.toFixed(1)} ${by.toFixed(1)})">${bouquetSvg}</g>
+    ${flowerMarkup}
     ${labelMarkup}
     <text x="${width / 2}" y="${(height * 0.965).toFixed(1)}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${(height * 0.013).toFixed(1)}" letter-spacing="3" fill="${INK}" opacity="0.4">PEARWAA</text>
   </svg>`;

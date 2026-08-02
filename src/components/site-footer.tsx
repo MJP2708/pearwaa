@@ -16,6 +16,12 @@ export function SiteFooter() {
           ))}
         </nav>
         <p className="text-xs text-muted-foreground/70">Pearwaa — made for quiet moments, not notifications.</p>
+        <Link
+          href="/delivery"
+          className="rounded text-xs text-muted-foreground/70 underline decoration-dotted underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          Or take a small detour — flower delivery
+        </Link>
       </div>
     </footer>
   );

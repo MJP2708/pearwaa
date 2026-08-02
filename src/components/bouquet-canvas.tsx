@@ -2,6 +2,7 @@
 
 import { useMemo, type KeyboardEvent, type MouseEvent } from "react";
 import { composeBouquetSvg } from "@/lib/bouquet-svg";
+import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -29,10 +30,11 @@ export function BouquetCanvas({ flowerIds, onFlowerActivate, className, emptyHin
     return (
       <div
         className={cn(
-          "mx-auto flex aspect-square w-full max-w-md items-center justify-center rounded-3xl border border-dashed border-border bg-secondary/40 p-8 text-center",
+          "mx-auto flex aspect-square w-full max-w-md flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-border bg-secondary/40 p-8 text-center",
           className,
         )}
       >
+        <Mascot size={56} mood="sleepy" className="opacity-80" />
         <p className="max-w-[26ch] text-sm text-muted-foreground">
           {emptyHint ?? "Your bouquet is waiting. Choose a flower to begin."}
         </p>

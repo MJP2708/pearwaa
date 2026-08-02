@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ArrowLeft, Download, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { buildShareCardSvg, svgToPngBlob, downloadBlob, SHARE_CARD_SIZE } from "@/lib/export-image";
+import { Mascot } from "@/components/mascot";
 import type { Emotion } from "@/data/emotions";
 
 type Props = {
@@ -72,7 +73,11 @@ export function ShareCardStep({ emotion, flowerIds, message, onBack, onRestart }
             Start over
           </Button>
           <Button size="lg" className="rounded-full px-7" onClick={handleDownload} disabled={isExporting}>
-            <Download className="size-4" aria-hidden="true" />
+            {isExporting ? (
+              <Mascot size={18} mood="sleepy" className="animate-pulse" />
+            ) : (
+              <Download className="size-4" aria-hidden="true" />
+            )}
             {isExporting ? "Preparing…" : "Download"}
           </Button>
         </div>

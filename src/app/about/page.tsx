@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { FadeIn } from "@/components/motion/fade-in";
 
 export const metadata: Metadata = {
@@ -58,6 +59,17 @@ export default function AboutPage() {
             </div>
           ))}
         </dl>
+      </FadeIn>
+
+      <FadeIn delay={0.15} className="mt-10 border-t border-border/70 pt-10">
+        <h2 className="font-heading text-xl font-normal text-foreground">If you want a smaller kind of fun</h2>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          There&rsquo;s also a quiet detour called{" "}
+          <Link href="/delivery" className="text-primary underline decoration-dotted underline-offset-4 hover:text-primary/80">
+            Flower Delivery
+          </Link>{" "}
+          — a small drive with a few stops along the way. No scores, no timers, nothing to lose.
+        </p>
       </FadeIn>
     </div>
   );
