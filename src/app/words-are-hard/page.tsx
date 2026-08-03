@@ -6,7 +6,7 @@ import { IntroStep } from "@/components/words/intro-step";
 import { GuidedQuestions } from "@/components/words/guided-questions";
 import { FeelingReveal } from "@/components/words/feeling-reveal";
 import { MessageStep } from "@/components/words/message-step";
-import { ShareCardStep } from "@/components/words/share-card-step";
+import { SendLetterStep } from "@/components/words/send-letter-step";
 import { EmotionPicker } from "@/components/create/emotion-picker";
 import { BouquetBuilder } from "@/components/create/bouquet-builder";
 import { getEmotion, type Emotion } from "@/data/emotions";
@@ -124,13 +124,7 @@ export default function WordsAreHardPage() {
 
         {step === "card" && emotion && (
           <motion.div key="card" {...stepTransition}>
-            <ShareCardStep
-              emotion={emotion}
-              flowerIds={placements.map((p) => p.flowerId)}
-              message={message}
-              onBack={back}
-              onRestart={restart}
-            />
+            <SendLetterStep emotion={emotion} placements={placements} message={message} onBack={back} onRestart={restart} />
           </motion.div>
         )}
       </AnimatePresence>

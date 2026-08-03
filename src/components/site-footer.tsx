@@ -1,7 +1,15 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { NAV_ITEMS } from "@/lib/nav";
 
 export function SiteFooter() {
+  const pathname = usePathname();
+
+  // The Flower Letter receiving page is a standalone moment — no app chrome.
+  if (pathname === "/letter") return null;
+
   return (
     <footer className="border-t border-border/70">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-5 py-10 text-center sm:px-8">

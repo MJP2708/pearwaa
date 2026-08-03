@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { EncyclopediaFlower } from "@/data/flower-encyclopedia";
 import { getPetalGeometry } from "./petal-geometry";
+import { getToonGradientMap } from "./toon-gradient";
 
 const GOLDEN_ANGLE = 137.508;
 const WILT_COLOR = new THREE.Color("#8a7a5e");
@@ -38,8 +39,10 @@ export function ProceduralFlower({ flower, colorHex, targetBloomT, reducedMotion
     [petalShape, isCluster],
   );
 
+  // A soft toon material — gentle painterly shading bands instead of
+  // PBR-realistic falloff, matching the illustrated 2D art direction.
   const petalMaterial = useMemo(
-    () => new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.02, side: THREE.DoubleSide }),
+    () => new THREE.MeshToonMaterial({ gradientMap: getToonGradientMap(), side: THREE.DoubleSide }),
     [],
   );
 
@@ -113,14 +116,14 @@ export function ProceduralFlower({ flower, colorHex, targetBloomT, reducedMotion
     <group>
       <mesh position={[0, 0.4, 0]}>
         <cylinderGeometry args={[0.028, 0.036, 0.86, 8]} />
-        <meshStandardMaterial color={STEM_COLOR} roughness={0.7} />
+        <meshToonMaterial color={STEM_COLOR} gradientMap={getToonGradientMap()} />
       </mesh>
 
       <instancedMesh ref={petalMeshRef} args={[petalGeometry, petalMaterial, petalCount]} castShadow />
 
       <mesh position={[0, 0.855, 0]} scale={0.1}>
         <sphereGeometry args={[1, 14, 12]} />
-        <meshStandardMaterial color={CENTER_COLOR} roughness={0.6} />
+        <meshToonMaterial color={CENTER_COLOR} gradientMap={getToonGradientMap()} />
       </mesh>
     </group>
   );

@@ -3,6 +3,7 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { MAX_LETTER_MESSAGE_LENGTH } from "@/lib/flower-letter-codec";
 
 const STARTERS = [
   "I'm not okay, but I will be.",
@@ -12,7 +13,7 @@ const STARTERS = [
   "Thank you for staying.",
 ];
 
-const MAX_LENGTH = 200;
+const MAX_LENGTH = MAX_LETTER_MESSAGE_LENGTH;
 
 export function MessageStep({
   message,
@@ -32,7 +33,8 @@ export function MessageStep({
         Say as much or as little as you want
       </h1>
       <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-        This part is optional. The bouquet can speak for itself if you&rsquo;d rather it did.
+        This part is optional. The bouquet can speak for itself if you&rsquo;d rather it did. A
+        few words or a full letter — both fit here.
       </p>
 
       <Textarea
@@ -40,7 +42,7 @@ export function MessageStep({
         onChange={(e) => onChangeMessage(e.target.value.slice(0, MAX_LENGTH))}
         placeholder="You don't have to explain. Just this is enough."
         maxLength={MAX_LENGTH}
-        rows={4}
+        rows={7}
         aria-label="Your message"
         className="mt-6 resize-none rounded-2xl text-base"
       />

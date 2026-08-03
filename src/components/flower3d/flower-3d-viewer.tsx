@@ -86,10 +86,13 @@ export function Flower3DViewer({ flower, colorHex, bloomStage, autoSpin, showPar
         onCreated={() => setReady(true)}
         style={{ opacity: ready ? 1 : 0, transition: reducedMotion ? "none" : "opacity 0.6s ease" }}
       >
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[2, 3, 2]} intensity={0.9} castShadow />
+        {/* Warm, soft lighting rather than clinical/showroom — a warm-tinted
+            key light plus a warm ambient fill, toned down for the toon
+            material's gentle shading bands rather than PBR intensity. */}
+        <ambientLight intensity={0.55} color="#FFE9CC" />
+        <directionalLight position={[2, 3, 2]} intensity={0.75} color="#FFDCAE" castShadow />
         <Suspense fallback={null}>
-          <Environment preset="dawn" />
+          <Environment preset="sunset" environmentIntensity={0.35} />
         </Suspense>
 
         <HabitatBackdrop habitat={flower.habitat} />
