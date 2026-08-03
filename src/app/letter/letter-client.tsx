@@ -1,4 +1,4 @@
-"use client";
+  "use client";
 
 import { useSearchParams } from "next/navigation";
 import { useMemo } from "react";
@@ -66,8 +66,11 @@ export function LetterClient() {
           </div>
         )}
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          A flower letter, sent {new Date(payload.createdAt).toLocaleDateString()} · from{" "}
+        <p className="mt-6 text-center font-heading text-base text-foreground/80">
+          From {payload.senderName?.trim() || "a friend"}
+        </p>
+        <p className="mt-1 text-center text-xs text-muted-foreground">
+          Sent {new Date(payload.createdAt).toLocaleDateString()} · via{" "}
           <Link
             href="/"
             className="underline decoration-dotted underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"

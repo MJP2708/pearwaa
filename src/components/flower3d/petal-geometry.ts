@@ -13,14 +13,19 @@ function petalOutline(shape: PetalShape3D, length: number, width: number): THREE
 
   switch (shape) {
     case "round":
+      // Deliberately not mirror-symmetric — a perfectly even ellipse is
+      // what reads as a "generic blob" rather than a petal. The left lobe
+      // peaks earlier and wider than the right, and the tip carries a
+      // slight off-center notch instead of a smooth dome.
       s.moveTo(0, 0);
-      s.bezierCurveTo(-w, length * 0.32, -w * 0.65, length, 0, length);
-      s.bezierCurveTo(w * 0.65, length, w, length * 0.32, 0, 0);
+      s.bezierCurveTo(-w * 0.92, length * 0.26, -w * 0.7, length * 0.88, -w * 0.1, length * 0.99);
+      s.quadraticCurveTo(w * 0.04, length * 1.04, w * 0.2, length * 0.94);
+      s.bezierCurveTo(w * 0.76, length * 0.8, w * 0.6, length * 0.32, 0, 0);
       break;
     case "pointed":
       s.moveTo(0, 0);
-      s.bezierCurveTo(-w, length * 0.45, -w * 0.22, length * 0.92, 0, length);
-      s.bezierCurveTo(w * 0.22, length * 0.92, w, length * 0.45, 0, 0);
+      s.bezierCurveTo(-w * 1.05, length * 0.42, -w * 0.3, length * 0.9, -w * 0.04, length);
+      s.bezierCurveTo(w * 0.15, length * 0.92, w * 0.85, length * 0.48, 0, 0);
       break;
     case "star":
       s.moveTo(0, 0);

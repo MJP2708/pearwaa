@@ -2,8 +2,11 @@
 
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { MAX_LETTER_MESSAGE_LENGTH } from "@/lib/flower-letter-codec";
+
+const MAX_NAME_LENGTH = 40;
 
 const STARTERS = [
   "I'm not okay, but I will be.",
@@ -18,11 +21,15 @@ const MAX_LENGTH = MAX_LETTER_MESSAGE_LENGTH;
 export function MessageStep({
   message,
   onChangeMessage,
+  senderName,
+  onChangeSenderName,
   onBack,
   onContinue,
 }: {
   message: string;
   onChangeMessage: (v: string) => void;
+  senderName: string;
+  onChangeSenderName: (v: string) => void;
   onBack: () => void;
   onContinue: () => void;
 }) {
@@ -61,6 +68,20 @@ export function MessageStep({
             {s}
           </button>
         ))}
+      </div>
+
+      <div className="mt-6">
+        <label htmlFor="sender-name" className="text-sm font-medium text-foreground">
+          Your name <span className="font-normal text-muted-foreground">(optional)</span>
+        </label>
+        <Input
+          id="sender-name"
+          value={senderName}
+          onChange={(e) => onChangeSenderName(e.target.value.slice(0, MAX_NAME_LENGTH))}
+          placeholder="Leave blank to send it as “a friend”"
+          maxLength={MAX_NAME_LENGTH}
+          className="mt-2 h-11 rounded-full px-4"
+        />
       </div>
 
       <div className="mt-9 flex justify-between">

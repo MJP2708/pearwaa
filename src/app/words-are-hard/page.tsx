@@ -13,6 +13,7 @@ import { getEmotion, type Emotion } from "@/data/emotions";
 import { getFlowersByEmotion } from "@/data/flowers";
 import { computePlacementPoint } from "@/lib/bouquet-layout";
 import type { FlowerPlacement } from "@/lib/export-image";
+import type { PresetId } from "@/lib/layout-presets";
 
 function createInitialPlacements(flowerIds: string[]): FlowerPlacement[] {
   return flowerIds.map((flowerId, i) => {
@@ -37,6 +38,9 @@ export default function WordsAreHardPage() {
   const [label, setLabel] = useState("");
   const [placements, setPlacements] = useState<FlowerPlacement[]>([]);
   const [message, setMessage] = useState("");
+  const [senderName, setSenderName] = useState("");
+  const [preset, setPreset] = useState<PresetId>("freeform");
+  const [presetLetter, setPresetLetter] = useState("A");
 
   const step = history[history.length - 1];
 
@@ -54,6 +58,9 @@ export default function WordsAreHardPage() {
     setLabel("");
     setPlacements([]);
     setMessage("");
+    setSenderName("");
+    setPreset("freeform");
+    setPresetLetter("A");
   }
 
   function applyEmotion(next: Emotion, nextLabel: string) {
@@ -110,6 +117,12 @@ export default function WordsAreHardPage() {
               label={label}
               placements={placements}
               onChangePlacements={setPlacements}
+              preset={preset}
+              presetLetter={presetLetter}
+              onChangePreset={(nextPreset, nextLetter) => {
+                setPreset(nextPreset);
+                setPresetLetter(nextLetter);
+              }}
               onBack={back}
               onContinue={() => push("message")}
             />
@@ -118,13 +131,27 @@ export default function WordsAreHardPage() {
 
         {step === "message" && (
           <motion.div key="message" {...stepTransition}>
-            <MessageStep message={message} onChangeMessage={setMessage} onBack={back} onContinue={() => push("card")} />
+            <MessageStep
+              message={message}
+              onChangeMessage={setMessage}
+              senderName={senderName}
+              onChangeSenderName={setSenderName}
+              onBack={back}
+              onContinue={() => push("card")}
+            />
           </motion.div>
         )}
 
         {step === "card" && emotion && (
           <motion.div key="card" {...stepTransition}>
-            <SendLetterStep emotion={emotion} placements={placements} message={message} onBack={back} onRestart={restart} />
+            <SendLetterStep
+              emotion={emotion}
+              placements={placements}
+              message={message}
+              senderName={senderName}
+              onBack={back}
+              onRestart={restart}
+            />
           </motion.div>
         )}
       </AnimatePresence>

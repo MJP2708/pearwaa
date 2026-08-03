@@ -27,6 +27,15 @@ type Props = {
   /** Fires when a flower is clicked/tapped without being dragged — e.g. to
    * open its bloom story, distinct from picking it up to reposition it. */
   onFlowerTap?: (flowerId: string, key: string) => void;
+  /** An optional decorative guide line (SVG path `d`, in the same 0-100
+   * coordinate space as placements) drawn under the flowers — like a wire
+   * a garland is strung on, so a shape preset actually reads as a shape
+   * rather than a scatter of a few dots. */
+  guidePathD?: string | null;
+  /** A single character rendered as a large, pale watermark behind the
+   * flowers — the Letter preset's equivalent of the guide line, since a
+   * letter can't be traced as one continuous path. */
+  backgroundGlyph?: string | null;
 };
 
 function clamp(v: number) {
@@ -45,6 +54,8 @@ export function FlowerLayoutCanvas({
   aspectRatio,
   label,
   onFlowerTap,
+  guidePathD,
+  backgroundGlyph,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -112,9 +123,40 @@ export function FlowerLayoutCanvas({
       className="relative w-full touch-none overflow-hidden rounded-3xl border border-border/70"
       style={{
         aspectRatio,
+        containerType: "inline-size",
         background: `radial-gradient(circle at 50% 36%, ${lightenHex(accentHex, 0.82)}, ${lightenHex(accentHex, 0.94)})`,
       }}
     >
+      {backgroundGlyph && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 flex items-center justify-center select-none font-heading"
+          style={{ fontSize: "60cqw", color: lightenHex(accentHex, 0.08), opacity: 0.28 }}
+        >
+          {backgroundGlyph.toUpperCase()}
+        </span>
+      )}
+
+      {guidePathD && (
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          className="pointer-events-none absolute inset-0 h-full w-full"
+          aria-hidden="true"
+        >
+          <path
+            d={guidePathD}
+            fill="none"
+            stroke={lightenHex(accentHex, 0.12)}
+            strokeWidth="1.1"
+            strokeDasharray="1.4 2.2"
+            strokeLinecap="round"
+            opacity="0.85"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+      )}
+
       {placements.map((placement) => {
         const flower = allFlowers.find((f) => f.id === placement.flowerId);
         if (!flower) return null;

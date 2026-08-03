@@ -74,16 +74,24 @@ export function ProceduralFlower({ flower, colorHex, targetBloomT, reducedMotion
         dummy.rotation.set((jitter - 0.5) * 0.6, azimuth, (jitter - 0.5) * 0.4);
         dummy.scale.setScalar(scale * (1 - wiltT * 0.15));
       } else {
+        const jitter2 = seeded(i + 500);
         const baseAngleY = ((360 / petalCount) * i + (jitter - 0.5) * 6) * (Math.PI / 180);
         const closedDeg = 12;
         const openDeg = closedDeg + openT * (maxOpenDeg - closedDeg);
         const wiltDroopDeg = wiltT * 30;
         const tilt = (openDeg + wiltDroopDeg) * (Math.PI / 180);
+        const roll = (jitter2 - 0.5) * 0.35;
 
         dummy.position.set(0, headY, 0);
-        dummy.rotation.set(tilt, baseAngleY, 0, "YXZ");
+        dummy.rotation.set(tilt, baseAngleY, roll, "YXZ");
+        // Non-uniform scale — width and length vary independently per
+        // petal (not just a single uniform scalar) so neighboring petals
+        // read as individually shaped rather than stamped copies of one
+        // ellipse at different sizes.
         const scaleBase = 0.5 + openT * 0.5;
-        dummy.scale.setScalar(scaleBase * (1 - wiltT * 0.12) * (0.92 + jitter * 0.16));
+        const lengthScale = scaleBase * (1 - wiltT * 0.12) * (0.92 + jitter * 0.16);
+        const widthScale = lengthScale * (0.86 + jitter2 * 0.26);
+        dummy.scale.set(widthScale, lengthScale, widthScale);
       }
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);

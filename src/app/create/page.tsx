@@ -7,6 +7,7 @@ import { BouquetBuilder } from "@/components/create/bouquet-builder";
 import { WallpaperStep } from "@/components/create/wallpaper-step";
 import type { Emotion } from "@/data/emotions";
 import type { FlowerPlacement } from "@/lib/export-image";
+import type { PresetId } from "@/lib/layout-presets";
 
 type Step = "feeling" | "bouquet" | "wallpaper";
 
@@ -22,12 +23,16 @@ export default function CreatePage() {
   const [emotion, setEmotion] = useState<Emotion | null>(null);
   const [label, setLabel] = useState("");
   const [placements, setPlacements] = useState<FlowerPlacement[]>([]);
+  const [preset, setPreset] = useState<PresetId>("freeform");
+  const [presetLetter, setPresetLetter] = useState("A");
 
   function reset() {
     setStep("feeling");
     setEmotion(null);
     setLabel("");
     setPlacements([]);
+    setPreset("freeform");
+    setPresetLetter("A");
   }
 
   return (
@@ -52,6 +57,12 @@ export default function CreatePage() {
               label={label}
               placements={placements}
               onChangePlacements={setPlacements}
+              preset={preset}
+              presetLetter={presetLetter}
+              onChangePreset={(nextPreset, nextLetter) => {
+                setPreset(nextPreset);
+                setPresetLetter(nextLetter);
+              }}
               onBack={() => setStep("feeling")}
               onContinue={() => setStep("wallpaper")}
             />

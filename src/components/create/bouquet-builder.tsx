@@ -5,15 +5,28 @@ import { ArrowLeft, ArrowRight, BringToFront, Minus, Plus, SendToBack } from "lu
 import { flowers, getFlower, getFlowersByEmotion } from "@/data/flowers";
 import type { Emotion } from "@/data/emotions";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { FlowerLayoutCanvas } from "@/components/create/flower-layout-canvas";
 import { FlowerGlyphIcon } from "@/components/flower-glyph-icon";
 import { BloomStoryDialog } from "@/components/bloom-story-dialog";
 import { Mascot } from "@/components/mascot";
 import { computePlacementPoint } from "@/lib/bouquet-layout";
+import { getPresetPoints, getPresetGuidePath, type PresetId } from "@/lib/layout-presets";
 import type { FlowerPlacement } from "@/lib/export-image";
 import { cn } from "@/lib/utils";
 
 const MAX_FLOWERS = 12;
+// Preset-arranged flowers render larger than the freeform default so
+// neighboring flowers visually bridge the gaps along the shape's outline
+// instead of reading as a scatter of separate dots.
+const PRESET_SCALE = 0.92;
+
+const PRESETS: { id: PresetId; label: string }[] = [
+  { id: "freeform", label: "Freeform" },
+  { id: "heart", label: "Heart" },
+  { id: "circle", label: "Circle" },
+  { id: "letter", label: "Letter" },
+];
 
 function createPlacement(flowerId: string, index: number): FlowerPlacement {
   const { x, y, scale } = computePlacementPoint(index);
@@ -21,11 +34,26 @@ function createPlacement(flowerId: string, index: number): FlowerPlacement {
   return { key, flowerId, x, y, scale };
 }
 
+function redistributePlacements(current: FlowerPlacement[], preset: PresetId, letter: string): FlowerPlacement[] {
+  if (preset === "freeform" || current.length === 0) return current;
+  const points = getPresetPoints(preset, letter, current.length);
+  if (points.length === 0) return current;
+  return current.map((p, i) => ({
+    ...p,
+    x: points[i]?.x ?? p.x,
+    y: points[i]?.y ?? p.y,
+    scale: PRESET_SCALE,
+  }));
+}
+
 type Props = {
   emotion: Emotion;
   label: string;
   placements: FlowerPlacement[];
   onChangePlacements: (next: FlowerPlacement[]) => void;
+  preset: PresetId;
+  presetLetter: string;
+  onChangePreset: (preset: PresetId, letter: string) => void;
   onBack: () => void;
   onContinue: () => void;
   stepLabel?: string;
@@ -36,6 +64,9 @@ export function BouquetBuilder({
   label,
   placements,
   onChangePlacements,
+  preset,
+  presetLetter,
+  onChangePreset,
   onBack,
   onContinue,
   stepLabel = "Step 2 of 3",
@@ -57,7 +88,8 @@ export function BouquetBuilder({
 
   function addFlower(id: string) {
     if (atCapacity) return;
-    onChangePlacements([...placements, createPlacement(id, placements.length)]);
+    const next = [...placements, createPlacement(id, placements.length)];
+    onChangePlacements(redistributePlacements(next, preset, presetLetter));
   }
 
   function removeOne(id: string) {
@@ -66,8 +98,21 @@ export function BouquetBuilder({
     const realIdx = placements.length - 1 - idx;
     const removed = placements[realIdx];
     const next = placements.filter((_, i) => i !== realIdx);
-    onChangePlacements(next);
+    onChangePlacements(redistributePlacements(next, preset, presetLetter));
     if (removed.key === selectedKey) setSelectedKey(null);
+  }
+
+  function selectPreset(nextPreset: PresetId) {
+    onChangePreset(nextPreset, presetLetter);
+    onChangePlacements(redistributePlacements(placements, nextPreset, presetLetter));
+  }
+
+  function selectLetter(nextLetter: string) {
+    const letter = nextLetter.replace(/[^a-zA-Z]/g, "").slice(0, 1);
+    onChangePreset(preset, letter);
+    if (preset === "letter" && letter) {
+      onChangePlacements(redistributePlacements(placements, "letter", letter));
+    }
   }
 
   function bringToFront() {
@@ -139,6 +184,43 @@ export function BouquetBuilder({
         </div>
 
         <div>
+          <div className="mb-3">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Shape</p>
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Bouquet shape">
+              {PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => selectPreset(p.id)}
+                  aria-pressed={preset === p.id}
+                  className={cn(
+                    "rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                    preset === p.id
+                      ? "border-primary bg-accent text-accent-foreground"
+                      : "border-border/70 text-muted-foreground hover:bg-secondary",
+                  )}
+                >
+                  {p.label}
+                </button>
+              ))}
+              {preset === "letter" && (
+                <Input
+                  value={presetLetter}
+                  onChange={(e) => selectLetter(e.target.value)}
+                  placeholder="A"
+                  maxLength={1}
+                  aria-label="Which letter to arrange your flowers into"
+                  className="h-8 w-14 rounded-full px-3 text-center text-sm uppercase"
+                />
+              )}
+            </div>
+            {preset !== "freeform" && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                A starting point — every flower is still yours to drag and fine-tune.
+              </p>
+            )}
+          </div>
+
           {placements.length === 0 ? (
             <div className="mx-auto flex aspect-square w-full max-w-md flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-border bg-secondary/40 p-8 text-center">
               <Mascot size={56} mood="sleepy" className="opacity-80" />
@@ -156,6 +238,8 @@ export function BouquetBuilder({
                 accentHex={emotion.colorHex}
                 aspectRatio="1 / 1"
                 onFlowerTap={(flowerId) => setActiveFlowerId(flowerId)}
+                guidePathD={getPresetGuidePath(preset, placements.length)}
+                backgroundGlyph={preset === "letter" ? presetLetter : null}
               />
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Button variant="outline" size="sm" className="rounded-full" onClick={bringToFront} disabled={!selectedKey}>

@@ -11,6 +11,9 @@ export type FlowerLetterPayload = {
   emotionLabel: string;
   emotionColorHex: string;
   message: string;
+  /** Optional — older links and blank fields alike fall back to something
+   * warm and anonymous rather than showing nothing or an error state. */
+  senderName?: string;
   flowers: { flowerId: string; x: number; y: number; scale: number }[];
   createdAt: number;
 };

@@ -11,12 +11,13 @@ import type { Emotion } from "@/data/emotions";
 type Props = {
   emotion: Emotion;
   message: string;
+  senderName: string;
   placements: FlowerPlacement[];
   onBack: () => void;
   onRestart: () => void;
 };
 
-export function SendLetterStep({ emotion, message, placements, onBack, onRestart }: Props) {
+export function SendLetterStep({ emotion, message, senderName, placements, onBack, onRestart }: Props) {
   const flowerIds = useMemo(() => placements.map((p) => p.flowerId), [placements]);
   const previewSvg = useMemo(
     () =>
@@ -40,6 +41,7 @@ export function SendLetterStep({ emotion, message, placements, onBack, onRestart
       emotionLabel: emotion.label,
       emotionColorHex: emotion.colorHex,
       message,
+      senderName: senderName.trim(),
       flowers: placements.map((p) => ({ flowerId: p.flowerId, x: p.x, y: p.y, scale: p.scale })),
       createdAt: Date.now(),
     };
@@ -92,6 +94,9 @@ export function SendLetterStep({ emotion, message, placements, onBack, onRestart
         style={{ maxWidth: 300, aspectRatio: `${SHARE_CARD_SIZE.width} / ${SHARE_CARD_SIZE.height}` }}
         dangerouslySetInnerHTML={{ __html: previewSvg }}
       />
+      <p className="mt-2 text-center text-xs text-muted-foreground">
+        Signed: {senderName.trim() || "a friend"}
+      </p>
 
       {error && (
         <p role="alert" className="mt-3 text-center text-sm text-destructive">
