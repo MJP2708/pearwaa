@@ -46,7 +46,10 @@ export function FlowerDetailClient({ flower }: { flower: EncyclopediaFlower }) {
   const { favorited, toggleFavorite, markViewed, markColorViewed, newlyUnlocked, acknowledgeAchievement } =
     useFlowerCollection();
   const registerSecretClick = useSecretClickCounter();
-  useAmbientTone(soundOn);
+  // If the browser blocks the audio context despite the click gesture,
+  // flip the toggle back off rather than leaving it reading "on" with no
+  // sound and no explanation.
+  useAmbientTone(soundOn, () => setSoundOn(false));
 
   // WebGL support can only be detected client-side after mount — there's no
   // pure/lazy-init alternative that stays SSR-safe, so this one intentionally

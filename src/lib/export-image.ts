@@ -2,12 +2,9 @@ import { getFlower } from "@/data/flowers";
 import { composeBouquetSvg } from "./bouquet-svg";
 import { flowerGlyphMarkup } from "./flower-glyph";
 import { lightenHex } from "./color";
+import { escapeXml } from "./utils";
 
 const INK = "#3A3350";
-
-function escapeXml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
 
 export function wrapTextToLines(text: string, maxCharsPerLine: number): string[] {
   const words = text.trim().split(/\s+/).filter(Boolean);
@@ -124,11 +121,25 @@ export function buildShareCardSvg(
   </svg>`;
 }
 
+const IMAGE_LOAD_TIMEOUT_MS = 12000;
+
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Failed to render image"));
+    // Without a timeout, a stalled load (e.g. a very large canvas on a
+    // low-memory device) leaves the export spinner stuck forever with no
+    // way out short of a page reload.
+    const timer = setTimeout(() => {
+      reject(new Error("Image took too long to load"));
+    }, IMAGE_LOAD_TIMEOUT_MS);
+    img.onload = () => {
+      clearTimeout(timer);
+      resolve(img);
+    };
+    img.onerror = () => {
+      clearTimeout(timer);
+      reject(new Error("Failed to render image"));
+    };
     img.src = src;
   });
 }

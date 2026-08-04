@@ -64,12 +64,23 @@ export function DeliveryScene() {
   const { reducedMotion } = useAccessibility();
   const [flowers, setFlowers] = useState<FlowerItem[]>(() => initFlowers());
   const [hasFocused, setHasFocused] = useState(false);
+  // The visual pickup animation (fade/scale) and the running "N of N"
+  // count convey nothing about *which* flower was just collected to a
+  // screen-reader user — the rest of the app treats each flower's name
+  // and meaning as the actual content, so this game shouldn't be the one
+  // place that's reduced to an anonymous count.
+  const [lastCollected, setLastCollected] = useState<{ name: string; meaning: string } | null>(null);
 
   const carElRef = useRef<HTMLDivElement>(null);
   const physicsRef = useRef({ ...CAR_START, speed: 0 });
   const pressedKeysRef = useRef<Set<Dir>>(new Set());
   const rafRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
+  const flowersRef = useRef(flowers);
+
+  useEffect(() => {
+    flowersRef.current = flowers;
+  }, [flowers]);
 
   const totalCount = flowers.length;
   const collectedCount = flowers.filter((f) => f.collected).length;
@@ -82,18 +93,21 @@ export function DeliveryScene() {
   }, []);
 
   const checkPickups = useCallback((carX: number, carY: number) => {
-    setFlowers((prev) => {
-      let changed = false;
-      const next = prev.map((f) => {
-        if (f.collected) return f;
-        if (Math.hypot(f.x - carX, f.y - carY) < PICKUP_RADIUS) {
-          changed = true;
-          return { ...f, collected: true };
-        }
-        return f;
-      });
-      return changed ? next : prev;
+    const prev = flowersRef.current;
+    let changed = false;
+    const next = prev.map((f) => {
+      if (f.collected) return f;
+      if (Math.hypot(f.x - carX, f.y - carY) < PICKUP_RADIUS) {
+        changed = true;
+        return { ...f, collected: true };
+      }
+      return f;
     });
+    if (!changed) return;
+    setFlowers(next);
+    const justCollectedId = next.find((f, i) => f.collected && !prev[i].collected)?.flowerId;
+    const flower = justCollectedId ? getFlower(justCollectedId) : undefined;
+    if (flower) setLastCollected({ name: flower.name, meaning: flower.meaning });
   }, []);
 
   // Continuous, physics-based driving — soft acceleration and gradual
@@ -193,6 +207,7 @@ export function DeliveryScene() {
     physicsRef.current = { ...CAR_START, speed: 0 };
     applyCarTransform(CAR_START.x, CAR_START.y, CAR_START.angle);
     setFlowers(initFlowers());
+    setLastCollected(null);
   }
 
   return (
@@ -298,6 +313,7 @@ export function DeliveryScene() {
       </div>
 
       <p className="sr-only" aria-live="polite">
+        {lastCollected && !allCollected ? `${lastCollected.name} collected — ${lastCollected.meaning} ` : ""}
         {collectedCount} of {totalCount} flowers collected.
         {allCollected ? " All flowers delivered." : ""}
       </p>

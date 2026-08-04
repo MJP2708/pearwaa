@@ -6,18 +6,12 @@ import * as THREE from "three";
 import type { EncyclopediaFlower } from "@/data/flower-encyclopedia";
 import { getPetalGeometry } from "./petal-geometry";
 import { getToonGradientMap } from "./toon-gradient";
+import { seeded } from "@/lib/seeded-random";
 
 const GOLDEN_ANGLE = 137.508;
 const WILT_COLOR = new THREE.Color("#8a7a5e");
 const CENTER_COLOR = "#F6E6C8";
 const STEM_COLOR = "#5a7a52";
-
-/** Deterministic pseudo-random in [0,1), seeded by index — keeps the petal
- * jitter identical between renders instead of reshuffling every frame. */
-function seeded(i: number) {
-  const x = Math.sin(i * 12.9898) * 43758.5453;
-  return x - Math.floor(x);
-}
 
 type Props = {
   flower: EncyclopediaFlower;
@@ -59,7 +53,7 @@ export function ProceduralFlower({ flower, colorHex, targetBloomT, reducedMotion
     const headY = 0.86;
 
     for (let i = 0; i < petalCount; i++) {
-      const jitter = seeded(i);
+      const jitter = seeded(i, 0);
       if (isCluster) {
         const idx = i + 0.5;
         const azimuth = idx * GOLDEN_ANGLE * (Math.PI / 180);
@@ -74,7 +68,7 @@ export function ProceduralFlower({ flower, colorHex, targetBloomT, reducedMotion
         dummy.rotation.set((jitter - 0.5) * 0.6, azimuth, (jitter - 0.5) * 0.4);
         dummy.scale.setScalar(scale * (1 - wiltT * 0.15));
       } else {
-        const jitter2 = seeded(i + 500);
+        const jitter2 = seeded(i, 500);
         const baseAngleY = ((360 / petalCount) * i + (jitter - 0.5) * 6) * (Math.PI / 180);
         const closedDeg = 12;
         const openDeg = closedDeg + openT * (maxOpenDeg - closedDeg);

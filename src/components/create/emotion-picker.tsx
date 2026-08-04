@@ -30,7 +30,11 @@ export function EmotionPicker({ onContinue, stepLabel = "Step 1 of 3" }: Props) 
       return;
     }
     const label = customText.trim();
-    const emotion = matched ?? emotions.find((e) => e.id === "calm")!;
+    // Falls back through "calm" to the first available emotion rather than
+    // asserting "calm" always exists — a future rename/removal of that
+    // entry degrades gracefully instead of crashing this step.
+    const emotion = matched ?? emotions.find((e) => e.id === "calm") ?? emotions[0];
+    if (!emotion) return;
     onContinue({ emotion, label });
   }
 

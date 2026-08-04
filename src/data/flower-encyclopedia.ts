@@ -1,5 +1,5 @@
 import type { EmotionId } from "./emotions";
-import { flowers as bouquetFlowers } from "./flowers";
+import { flowers as bouquetFlowers, type Flower } from "./flowers";
 
 export type PetalShape3D = "round" | "pointed" | "star" | "cluster" | "ruffled" | "trumpet";
 
@@ -42,8 +42,16 @@ export type EncyclopediaFlower = {
   };
 };
 
+/** flowers.ts and this file are two independently-maintained datasets —
+ * nothing enforces that an id used here still exists there. Silently
+ * falling back to [] would just render a flower with no bloom story and
+ * no indication why, so a dev-time mismatch is surfaced loudly instead. */
 function reuseBloomStory(id: string): string[] {
-  return bouquetFlowers.find((f) => f.id === id)?.bloomStory ?? [];
+  const story = bouquetFlowers.find((f) => f.id === id)?.bloomStory;
+  if (!story && process.env.NODE_ENV !== "production") {
+    console.warn(`[flower-encyclopedia] reuseBloomStory("${id}"): no matching flower in flowers.ts — bloomStory will be empty.`);
+  }
+  return story ?? [];
 }
 
 export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
@@ -466,4 +474,22 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
 
 export function getEncyclopediaFlower(id: string): EncyclopediaFlower | undefined {
   return ENCYCLOPEDIA_FLOWERS.find((f) => f.id === id);
+}
+
+/** Adapts an EncyclopediaFlower (3D/detail-page data) into the legacy
+ * Flower shape the 2D glyph/bouquet pipeline expects. The two datasets'
+ * petal-shape vocabularies don't line up 1:1 — "trumpet" and "ruffled"
+ * (3D-only shapes) fall back to the closest 2D equivalent. */
+export function toLegacyFlower(flower: EncyclopediaFlower): Flower {
+  return {
+    id: flower.id,
+    name: flower.commonName,
+    scientificName: flower.scientificName,
+    meaning: flower.colors[0]?.symbolism ?? flower.hanakotoba,
+    bloomStory: flower.bloomStory,
+    emotions: flower.emotions,
+    colorHex: flower.colors[0]?.hex ?? "#C9B7E8",
+    petalShape: flower.model.petalShape === "trumpet" ? "bell" : flower.model.petalShape === "ruffled" ? "round" : flower.model.petalShape,
+    petalCount: flower.model.petalCount,
+  };
 }

@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { Heart, Sparkles } from "lucide-react";
-import { ENCYCLOPEDIA_FLOWERS } from "@/data/flower-encyclopedia";
+import { ENCYCLOPEDIA_FLOWERS, toLegacyFlower } from "@/data/flower-encyclopedia";
 import { ACHIEVEMENTS } from "@/data/achievements";
 import { FlowerGlyphIcon } from "@/components/flower-glyph-icon";
 import { Mascot } from "@/components/mascot";
 import { FadeIn } from "@/components/motion/fade-in";
 import { useFlowerCollection } from "@/lib/use-flower-collection";
 import { cn } from "@/lib/utils";
-import type { Flower } from "@/data/flowers";
 
 export default function CollectionPage() {
   const { viewed, favorited, viewedColors, unlocked } = useFlowerCollection();
@@ -31,17 +30,7 @@ export default function CollectionPage() {
         {ENCYCLOPEDIA_FLOWERS.map((flower, i) => {
           const isViewed = viewed.includes(flower.id);
           const isFavorited = favorited.includes(flower.id);
-          const previewFlower: Flower = {
-            id: flower.id,
-            name: flower.commonName,
-            scientificName: flower.scientificName,
-            meaning: flower.colors[0]?.symbolism ?? flower.hanakotoba,
-            bloomStory: flower.bloomStory,
-            emotions: flower.emotions,
-            colorHex: flower.colors[0]?.hex ?? "#C9B7E8",
-            petalShape: flower.model.petalShape === "trumpet" ? "bell" : flower.model.petalShape === "ruffled" ? "round" : flower.model.petalShape,
-            petalCount: flower.model.petalCount,
-          };
+          const previewFlower = toLegacyFlower(flower);
 
           return (
             <li key={flower.id}>

@@ -33,12 +33,15 @@ export const ACHIEVEMENTS: Achievement[] = [
     id: "rose-lover",
     title: "Rose Lover",
     description: "Every shade of rose, seen and understood.",
-    isUnlocked: (_viewed, viewedColors) => roseColorKeys.every((k) => viewedColors.includes(k)),
+    // `.every()` on an empty array returns true — if "rose" ever gets
+    // renamed/removed from the encyclopedia data, roseColorKeys silently
+    // becomes [] and this would instantly unlock for everyone.
+    isUnlocked: (_viewed, viewedColors) => roseColorKeys.length > 0 && roseColorKeys.every((k) => viewedColors.includes(k)),
   },
   {
     id: "spring-collector",
     title: "Spring Collector",
     description: "Every flower that blooms in spring, found.",
-    isUnlocked: (viewed) => springFlowerIds.every((id) => viewed.includes(id)),
+    isUnlocked: (viewed) => springFlowerIds.length > 0 && springFlowerIds.every((id) => viewed.includes(id)),
   },
 ];

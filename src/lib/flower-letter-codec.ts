@@ -24,6 +24,21 @@ export function encodeFlowerLetter(payload: FlowerLetterPayload): string {
   return compressToEncodedURIComponent(JSON.stringify(payload));
 }
 
+function isValidFlowerEntry(f: unknown): f is FlowerLetterPayload["flowers"][number] {
+  if (typeof f !== "object" || f === null) return false;
+  const entry = f as Record<string, unknown>;
+  return (
+    typeof entry.flowerId === "string" &&
+    entry.flowerId.length > 0 &&
+    typeof entry.x === "number" &&
+    Number.isFinite(entry.x) &&
+    typeof entry.y === "number" &&
+    Number.isFinite(entry.y) &&
+    typeof entry.scale === "number" &&
+    Number.isFinite(entry.scale)
+  );
+}
+
 export function decodeFlowerLetter(encoded: string): FlowerLetterPayload | null {
   try {
     const json = decompressFromEncodedURIComponent(encoded);
@@ -38,7 +53,15 @@ export function decodeFlowerLetter(encoded: string): FlowerLetterPayload | null 
     ) {
       return null;
     }
-    return parsed as FlowerLetterPayload;
+    // A hand-edited or corrupted link shouldn't silently render a broken
+    // bouquet (NaN coordinates, etc.) — drop individually malformed
+    // entries rather than trusting the whole array's shape.
+    const flowers = parsed.flowers.filter(isValidFlowerEntry);
+    return {
+      ...parsed,
+      flowers,
+      senderName: typeof parsed.senderName === "string" ? parsed.senderName : undefined,
+    } as FlowerLetterPayload;
   } catch {
     return null;
   }

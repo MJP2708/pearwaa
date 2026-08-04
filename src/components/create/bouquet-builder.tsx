@@ -75,6 +75,11 @@ export function BouquetBuilder({
   const [activeFlowerId, setActiveFlowerId] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
+  // getPresetGuidePath rebuilds a 200-300 point trig curve and normalizes
+  // it; placements changes on every pointermove during a drag, so this
+  // would otherwise recompute the full curve on every drag frame.
+  const guidePathD = useMemo(() => getPresetGuidePath(preset, placements.length), [preset, placements.length]);
+
   const suggested = useMemo(() => getFlowersByEmotion(emotion.id), [emotion.id]);
   const palette = showAll ? flowers : suggested;
 
@@ -238,7 +243,7 @@ export function BouquetBuilder({
                 accentHex={emotion.colorHex}
                 aspectRatio="1 / 1"
                 onFlowerTap={(flowerId) => setActiveFlowerId(flowerId)}
-                guidePathD={getPresetGuidePath(preset, placements.length)}
+                guidePathD={guidePathD}
                 backgroundGlyph={preset === "letter" ? presetLetter : null}
               />
               <div className="mt-3 flex flex-wrap items-center gap-2">

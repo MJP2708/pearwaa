@@ -1,50 +1,10 @@
 import type { Flower, PetalShape } from "@/data/flowers";
+import { escapeXml } from "./utils";
+import { seeded } from "./seeded-random";
+import { mixHex, luminance } from "./color";
 
 const INK_GREEN = "#4C6B45";
 const DEEP_INK = "#4A3B52";
-
-/** Deterministic pseudo-random in [0,1), seeded by index + salt — gives
- * every petal its own slight, consistent irregularity instead of being a
- * perfect radial copy, without ever reshuffling between renders. Uses only
- * integer bitwise ops (no Math.sin/transcendental functions) — those
- * aren't guaranteed bit-identical across engine versions per spec, which
- * was previously causing SSR/client hydration mismatches here. */
-function seeded(i: number, salt: number): number {
-  let h = (i * 374761393 + salt * 668265263) | 0;
-  h = (h ^ (h >>> 13)) | 0;
-  h = Math.imul(h, 1274126177);
-  h = (h ^ (h >>> 16)) | 0;
-  return (h >>> 0) / 4294967296;
-}
-
-function mixHex(hexA: string, hexB: string, t: number): string {
-  const a = hexA.replace("#", "");
-  const b = hexB.replace("#", "");
-  const an = parseInt(a, 16);
-  const bn = parseInt(b, 16);
-  const ar = (an >> 16) & 255,
-    ag = (an >> 8) & 255,
-    ab = an & 255;
-  const br = (bn >> 16) & 255,
-    bg = (bn >> 8) & 255,
-    bb = bn & 255;
-  const r = Math.round(ar + (br - ar) * t);
-  const g = Math.round(ag + (bg - ag) * t);
-  const bch = Math.round(ab + (bb - ab) * t);
-  return `rgb(${r}, ${g}, ${bch})`;
-}
-
-/** Perceived brightness in [0,1] — catches flowers whose base color is
- * itself near-white (a plain white/cream bloom): mixing an already-pale
- * color further toward white/paper would leave nothing to see. */
-function luminance(hex: string): number {
-  const c = hex.replace("#", "");
-  const num = parseInt(c, 16);
-  const r = (num >> 16) & 255,
-    g = (num >> 8) & 255,
-    b = num & 255;
-  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-}
 
 /** One petal's soft outer "bleed" blob and smaller, more saturated "pigment
  * core" blob — an almond/teardrop silhouette loose enough that the SVG
@@ -187,7 +147,7 @@ export function flowerGlyphMarkup(
   const stemJitter = (seeded(1, 91) - 0.5) * L * 0.18;
   const stemBottomY = Math.min(98, cy + L * 1.15);
   const stemTopY = cy + L * 0.08;
-  const label = interactive ? ` data-flower-id="${flower.id}" tabindex="0" role="button" aria-label="${flower.name}"` : "";
+  const label = interactive ? ` data-flower-id="${escapeXml(flower.id)}" tabindex="0" role="button" aria-label="${escapeXml(flower.name)}"` : "";
 
   return `<g class="pw-flower"${label}>
     <defs>
@@ -222,7 +182,13 @@ export function composeFlowerIconSvg(flower: Flower, opts?: { size?: number }): 
     cy: 56,
     scale: 1,
     baseLength: 34,
-    instanceId: flower.id,
+    // The same flower is often rendered at several sizes on one page at
+    // once (e.g. a palette button and a bouquet-summary chip) and the
+    // filter params below are size-dependent (see `legibility`) — an
+    // instanceId of just `flower.id` would give two differently-tuned
+    // filters the same DOM id, and the browser silently resolves both
+    // <use>s to whichever definition happened to render first.
+    instanceId: `${flower.id}-${size}`,
     interactive: false,
     renderSize: size,
   });

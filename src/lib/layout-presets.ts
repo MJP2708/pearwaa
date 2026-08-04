@@ -1,18 +1,8 @@
+import { seeded } from "./seeded-random";
+
 export type PresetId = "freeform" | "heart" | "circle" | "letter";
 
 export type PresetPoint = { x: number; y: number };
-
-/** Deterministic pseudo-random in [0,1), seeded by index — a touch of
- * organic imperfection on top of otherwise-exact preset points, without
- * ever reshuffling between renders. Integer-only (no Math.sin) so it can't
- * drift between server/client the way transcendental functions can. */
-function seeded(i: number, salt: number): number {
-  let h = (i * 374761393 + salt * 668265263) | 0;
-  h = (h ^ (h >>> 13)) | 0;
-  h = Math.imul(h, 1274126177);
-  h = (h ^ (h >>> 16)) | 0;
-  return (h >>> 0) / 4294967296;
-}
 
 function distance(a: PresetPoint, b: PresetPoint): number {
   return Math.hypot(a.x - b.x, a.y - b.y);

@@ -3,18 +3,19 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { BookHeart } from "lucide-react";
-import { ENCYCLOPEDIA_FLOWERS } from "@/data/flower-encyclopedia";
-import { emotions } from "@/data/emotions";
+import { ENCYCLOPEDIA_FLOWERS, toLegacyFlower } from "@/data/flower-encyclopedia";
+import { emotions, type EmotionId } from "@/data/emotions";
 import { FlowerGlyphIcon } from "@/components/flower-glyph-icon";
 import { FadeIn } from "@/components/motion/fade-in";
 import { cn } from "@/lib/utils";
-import type { Flower } from "@/data/flowers";
+
+type FilterId = "all" | EmotionId;
 
 export default function ExplorePage() {
-  const [filter, setFilter] = useState<string>("all");
+  const [filter, setFilter] = useState<FilterId>("all");
 
   const visible = useMemo(
-    () => (filter === "all" ? ENCYCLOPEDIA_FLOWERS : ENCYCLOPEDIA_FLOWERS.filter((f) => f.emotions.includes(filter as never))),
+    () => (filter === "all" ? ENCYCLOPEDIA_FLOWERS : ENCYCLOPEDIA_FLOWERS.filter((f) => f.emotions.includes(filter))),
     [filter],
   );
 
@@ -74,17 +75,7 @@ export default function ExplorePage() {
 
       <ul className="mt-9 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
         {visible.map((flower, i) => {
-          const previewFlower: Flower = {
-            id: flower.id,
-            name: flower.commonName,
-            scientificName: flower.scientificName,
-            meaning: flower.colors[0]?.symbolism ?? flower.hanakotoba,
-            bloomStory: flower.bloomStory,
-            emotions: flower.emotions,
-            colorHex: flower.colors[0]?.hex ?? "#C9B7E8",
-            petalShape: flower.model.petalShape === "trumpet" ? "bell" : flower.model.petalShape === "ruffled" ? "round" : flower.model.petalShape,
-            petalCount: flower.model.petalCount,
-          };
+          const previewFlower = toLegacyFlower(flower);
           return (
             <li key={flower.id}>
               <FadeIn delay={Math.min(i * 0.03, 0.3)}>
