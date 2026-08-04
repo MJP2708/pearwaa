@@ -1,13 +1,14 @@
 import type { Flower, PetalShape } from "@/data/flowers";
 
-const INK = "#4A3B52";
+const INK_GREEN = "#4C6B45";
+const DEEP_INK = "#4A3B52";
 
-/** Deterministic pseudo-random in [0,1), seeded by petal index + a salt —
- * gives every petal its own slight, consistent irregularity instead of
- * being a perfect radial copy, without ever reshuffling between renders.
- * Uses only integer bitwise ops (no Math.sin/transcendental functions) —
- * those aren't guaranteed bit-identical across engine versions per spec,
- * which was previously causing SSR/client hydration mismatches here. */
+/** Deterministic pseudo-random in [0,1), seeded by index + salt — gives
+ * every petal its own slight, consistent irregularity instead of being a
+ * perfect radial copy, without ever reshuffling between renders. Uses only
+ * integer bitwise ops (no Math.sin/transcendental functions) — those
+ * aren't guaranteed bit-identical across engine versions per spec, which
+ * was previously causing SSR/client hydration mismatches here. */
 function seeded(i: number, salt: number): number {
   let h = (i * 374761393 + salt * 668265263) | 0;
   h = (h ^ (h >>> 13)) | 0;
@@ -33,105 +34,182 @@ function mixHex(hexA: string, hexB: string, t: number): string {
   return `rgb(${r}, ${g}, ${bch})`;
 }
 
-/** One petal's outline plus a smaller "inner wash" shape (a botanical-
- * illustration watercolor-pooling cue), both nudged by seeded jitter so no
- * two petals on a flower are quite identical. */
-function petalShapes(shape: PetalShape, cx: number, cy: number, L: number, seedIndex: number): { outline: string; innerWash: string } {
+/** Perceived brightness in [0,1] — catches flowers whose base color is
+ * itself near-white (a plain white/cream bloom): mixing an already-pale
+ * color further toward white/paper would leave nothing to see. */
+function luminance(hex: string): number {
+  const c = hex.replace("#", "");
+  const num = parseInt(c, 16);
+  const r = (num >> 16) & 255,
+    g = (num >> 8) & 255,
+    b = num & 255;
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
+/** One petal's soft outer "bleed" blob and smaller, more saturated "pigment
+ * core" blob — an almond/teardrop silhouette loose enough that the SVG
+ * turbulence filter (applied by the caller) reads as pigment spreading into
+ * damp paper rather than a precise botanical outline. */
+function petalBlobs(shape: PetalShape, L: number, seedIndex: number): { bleed: string; core: string } {
   const j = (n: number, spread: number) => (seeded(seedIndex, n) - 0.5) * spread;
 
-  switch (shape) {
-    case "round": {
-      const w = L * (0.42 + j(1, 0.06));
-      const tipX = j(2, 0.08) * L;
-      const outline = `M ${cx} ${cy} C ${cx - w + j(3, 3)} ${cy - L * 0.3} ${cx - w * 0.6} ${cy - L * (0.95 + j(4, 0.1))} ${cx + tipX} ${cy - L} C ${cx + w * 0.6} ${cy - L * (0.95 + j(5, 0.1))} ${cx + w - j(6, 3)} ${cy - L * 0.3} ${cx} ${cy} Z`;
-      const iw = w * 0.55;
-      const innerWash = `M ${cx} ${cy} C ${cx - iw} ${cy - L * 0.22} ${cx - iw * 0.5} ${cy - L * 0.65} ${cx} ${cy - L * 0.72} C ${cx + iw * 0.5} ${cy - L * 0.65} ${cx + iw} ${cy - L * 0.22} ${cx} ${cy} Z`;
-      return { outline, innerWash };
-    }
-    case "pointed": {
-      const w = L * (0.28 + j(1, 0.05));
-      const outline = `M ${cx} ${cy} C ${cx - w + j(2, 2)} ${cy - L * 0.45} ${cx - w * 0.25} ${cy - L * 0.92} ${cx + j(3, 0.06) * L} ${cy - L} C ${cx + w * 0.25} ${cy - L * 0.92} ${cx + w - j(4, 2)} ${cy - L * 0.45} ${cx} ${cy} Z`;
-      const iw = w * 0.5;
-      const innerWash = `M ${cx} ${cy} C ${cx - iw} ${cy - L * 0.3} ${cx - iw * 0.4} ${cy - L * 0.6} ${cx} ${cy - L * 0.65} C ${cx + iw * 0.4} ${cy - L * 0.6} ${cx + iw} ${cy - L * 0.3} ${cx} ${cy} Z`;
-      return { outline, innerWash };
-    }
-    case "star": {
-      const w = L * (0.16 + j(1, 0.03));
-      const outline = `M ${cx} ${cy} L ${cx - w + j(2, 1.5)} ${cy - L * 0.55} L ${cx + j(3, 0.05) * L} ${cy - L} L ${cx + w - j(4, 1.5)} ${cy - L * 0.55} Z`;
-      const innerWash = `M ${cx} ${cy} L ${cx - w * 0.4} ${cy - L * 0.35} L ${cx} ${cy - L * 0.5} L ${cx + w * 0.4} ${cy - L * 0.35} Z`;
-      return { outline, innerWash };
-    }
-    case "bell": {
-      const w = L * (0.36 + j(1, 0.05));
-      const outline = `M ${cx} ${cy} C ${cx - w * 0.25} ${cy - L * 0.25} ${cx - w} ${cy - L * 0.5} ${cx - w + j(2, 2)} ${cy - L * 0.75} C ${cx - w} ${cy - L * 0.95} ${cx + w} ${cy - L * 0.95} ${cx + w - j(3, 2)} ${cy - L * 0.75} C ${cx + w} ${cy - L * 0.5} ${cx + w * 0.25} ${cy - L * 0.25} ${cx} ${cy} Z`;
-      const iw = w * 0.55;
-      const innerWash = `M ${cx} ${cy} C ${cx - iw * 0.3} ${cy - L * 0.2} ${cx - iw} ${cy - L * 0.45} ${cx - iw} ${cy - L * 0.6} L ${cx + iw} ${cy - L * 0.6} C ${cx + iw} ${cy - L * 0.45} ${cx + iw * 0.3} ${cy - L * 0.2} ${cx} ${cy} Z`;
-      return { outline, innerWash };
-    }
-    case "cluster":
-    default:
-      return { outline: "", innerWash: "" };
+  if (shape === "star") {
+    const w = L * (0.22 + j(1, 0.04));
+    const tip = L * (0.98 + j(2, 0.08));
+    const bleed = `M 0 0 C ${-w * 1.3} ${-L * 0.4} ${-w * 0.5} ${-tip * 0.85} 0 ${-tip} C ${w * 0.5} ${-tip * 0.85} ${w * 1.3} ${-L * 0.4} 0 0 Z`;
+    const cw = w * 0.55;
+    const ct = tip * 0.72;
+    const core = `M 0 0 C ${-cw} ${-L * 0.28} ${-cw * 0.4} ${-ct * 0.85} 0 ${-ct} C ${cw * 0.4} ${-ct * 0.85} ${cw} ${-L * 0.28} 0 0 Z`;
+    return { bleed, core };
   }
+
+  // round / pointed / bell all read fine as one loose teardrop at this
+  // scale — the point of this style is that precise botanical distinction
+  // between petal shapes matters less than the gesture and color.
+  const w = L * (0.36 + j(1, 0.06));
+  const tip = L * (0.96 + j(2, 0.1));
+  const lean = j(3, 0.12) * L;
+  const bleed = `M 0 0 C ${-w - j(4, 3)} ${-L * 0.3} ${-w * 0.6 + lean * 0.4} ${-tip * 0.92} ${lean} ${-tip} C ${w * 0.6 + lean * 0.4} ${-tip * 0.92} ${w + j(5, 3)} ${-L * 0.3} 0 0 Z`;
+  const cw = w * 0.58;
+  const ct = tip * 0.68;
+  const cLean = lean * 0.6;
+  const core = `M 0 0 C ${-cw} ${-L * 0.24} ${-cw * 0.55 + cLean * 0.4} ${-ct * 0.9} ${cLean} ${-ct} C ${cw * 0.55 + cLean * 0.4} ${-ct * 0.9} ${cw} ${-L * 0.24} 0 0 Z`;
+  return { bleed, core };
 }
 
 /**
- * Renders one flower as a soft, botanical-illustration-style SVG glyph —
- * ink outline, gentle organic irregularity, a two-tone watercolor-style
- * wash, and fine vein linework — rather than a flat vector icon. Used both
- * for on-screen interactive markup (dangerouslySetInnerHTML) and for the
- * export pipeline (wallpapers, share cards, Flower Letters), so the two
- * always match.
+ * Renders one flower as a loose watercolor sketch — soft pigment-bleed
+ * blobs fading toward paper, a confident single-line ink stem, and a few
+ * paint-spatter accents. Used both for on-screen interactive markup
+ * (dangerouslySetInnerHTML) and for the export pipeline (wallpapers, share
+ * cards, Flower Letters), so the two always match.
+ *
+ * Two things this accounts for that a first pass at the style missed:
+ *
+ * 1. Contrast floor — a near-white base color (e.g. a white chrysanthemum)
+ *    mixed further toward white/paper leaves nothing to see. `contrastT`
+ *    scales the ink-mix and reduces the white-mix for pale flowers only,
+ *    leaving saturated flowers' true hue untouched.
+ * 2. Legibility factor — stroke widths, blur, and turbulence displacement
+ *    read as loose and painterly at a large "specimen" render, but most
+ *    real usages of this glyph are 22–72px, where the same viewBox-unit
+ *    values either vanish (sub-pixel strokes) or smear into more blur than
+ *    intended. `legibility` (driven by the actual pixel size passed down
+ *    to composeFlowerIconSvg) thickens strokes and tightens the
+ *    wobble/blur at small sizes, while leaving large renders as loose as
+ *    designed.
  */
 export function flowerGlyphMarkup(
   flower: Flower,
-  opts: { cx: number; cy: number; scale?: number; instanceId: string; interactive?: boolean; baseLength?: number },
+  opts: { cx: number; cy: number; scale?: number; instanceId: string; interactive?: boolean; baseLength?: number; renderSize?: number },
 ): string {
-  const { cx, cy, scale = 1, instanceId, interactive = true, baseLength = 9 } = opts;
+  const { cx, cy, scale = 1, instanceId, interactive = true, baseLength = 9, renderSize = 96 } = opts;
   const L = baseLength * scale;
-  const petalCount = flower.petalShape === "cluster" ? Math.min(flower.petalCount, 10) : flower.petalCount;
-  const gradId = `fg-${instanceId}`;
+  const petalCount = flower.petalShape === "cluster" ? Math.min(flower.petalCount, 9) : Math.min(flower.petalCount, 8);
+  const bleedId = `wc-bleed-${instanceId}`;
+  const softId = `wc-soft-${instanceId}`;
+  const seed = (seeded(petalCount, 3) * 999) | 0;
+
+  // 1 at "large specimen" sizes, up to 2.4 at the smallest bouquet icons.
+  const legibility = Math.min(2.4, Math.max(1, 110 / renderSize));
+  // Converts a desired real screen-pixel width into this glyph's viewBox
+  // units. A floor like `Math.max(0.4, L * k)` still goes sub-pixel (and
+  // effectively vanishes) whenever `L` itself is small — which it always
+  // is for bouquet-placement instances (baseLength 9 × a fractional
+  // placement scale). Flooring against actual render pixels, not viewBox
+  // units, is what actually guarantees a visible line at every size.
+  const px = (minPx: number) => (minPx / renderSize) * 100;
+
+  // Contrast against arbitrary backgrounds (the bouquet canvas tints its
+  // background toward the emotion's own accent color, which can sit close
+  // in hue to the flower itself) can't be solved by fill color alone —
+  // fixing it purely by mixing toward white/ink only helps against a white
+  // background. `ringColor` gives every petal a soft, darker pigment-edge
+  // (real watercolor pools darker at the rim of a wash) that reads against
+  // any ground, independent of what's behind it.
+  const lum = luminance(flower.colorHex);
+  const contrastT = Math.max(0, lum - 0.55) * 0.75;
+  const washColor = mixHex(flower.colorHex, "#FFFFFF", Math.max(0.22, 0.5 - contrastT));
+  const coreColor = mixHex(flower.colorHex, DEEP_INK, Math.min(0.45, 0.18 + contrastT));
+  const ringColor = mixHex(flower.colorHex, DEEP_INK, Math.min(0.65, 0.42 + contrastT));
+
+  const bleedScale = (0.22 / legibility).toFixed(3);
+  const softScale = (0.1 / legibility).toFixed(3);
+  const coreOpacity = Math.min(0.97, 0.86 + legibility * 0.04).toFixed(2);
+  const washOpacity = Math.min(0.65, 0.42 + legibility * 0.05).toFixed(2);
+  const ringWidth = Math.max(px(0.9), L * 0.03 * legibility).toFixed(2);
+  const ringOpacity = Math.min(0.65, 0.4 + legibility * 0.06).toFixed(2);
+  const stemWidth = Math.max(px(1.1), L * 0.045 * legibility).toFixed(2);
+  const gestureWidth = Math.max(px(0.55), L * 0.02 * legibility).toFixed(2);
+
   const petals: string[] = [];
-  const veins: string[] = [];
-
-  const washColor = mixHex(flower.colorHex, "#FFFFFF", 0.35);
-  const deepColor = mixHex(flower.colorHex, INK, 0.14);
-  const strokeW = Math.max(0.35, L * 0.05);
-
   for (let i = 0; i < petalCount; i++) {
-    const angle = (360 / petalCount) * i;
+    const angle = (360 / petalCount) * i + (seeded(i, 41) - 0.5) * 10;
+    const g = `<g transform="translate(${cx} ${cy}) rotate(${angle.toFixed(2)})">`;
+
     if (flower.petalShape === "cluster") {
-      const r = L * 0.62;
-      const rad = (angle * Math.PI) / 180;
-      const px = cx + Math.sin(rad) * r;
-      const py = cy - Math.cos(rad) * r;
-      const rr = L * (0.16 + (seeded(i, 9) - 0.5) * 0.04);
+      const r = L * (0.55 + (seeded(i, 8) - 0.5) * 0.12);
+      const rr = L * (0.17 + (seeded(i, 9) - 0.5) * 0.05);
       petals.push(
-        `<circle cx="${px.toFixed(2)}" cy="${py.toFixed(2)}" r="${rr.toFixed(2)}" fill="url(#${gradId})" stroke="${INK}" stroke-width="${(strokeW * 0.6).toFixed(2)}" opacity="0.94" />`,
-      );
-    } else {
-      const { outline, innerWash } = petalShapes(flower.petalShape, cx, cy, L, i);
-      const rot = `rotate(${(angle + (seeded(i, 21) - 0.5) * 4).toFixed(2)} ${cx} ${cy})`;
-      petals.push(
-        `<g transform="${rot}">` +
-          `<path d="${outline}" fill="url(#${gradId})" stroke="${INK}" stroke-width="${strokeW.toFixed(2)}" stroke-linejoin="round" />` +
-          `<path d="${innerWash}" fill="${washColor}" opacity="0.4" />` +
+        `<g transform="translate(${cx} ${cy}) rotate(${angle.toFixed(2)})">` +
+          `<circle cx="0" cy="${(-r).toFixed(2)}" r="${(rr * 1.5).toFixed(2)}" fill="${washColor}" opacity="${washOpacity}" filter="url(#${bleedId})" />` +
+          `<circle cx="0" cy="${(-r).toFixed(2)}" r="${rr.toFixed(2)}" fill="${coreColor}" opacity="${coreOpacity}" filter="url(#${softId})" />` +
+          `<circle cx="0" cy="${(-r).toFixed(2)}" r="${rr.toFixed(2)}" fill="none" stroke="${ringColor}" stroke-width="${ringWidth}" opacity="${ringOpacity}" />` +
           `</g>`,
       );
-      veins.push(
-        `<path d="M ${cx} ${cy} Q ${cx + L * 0.06} ${cy - L * 0.55} ${cx} ${cy - L * 0.9}" transform="${rot}" stroke="${deepColor}" stroke-width="${Math.max(0.2, L * 0.014).toFixed(2)}" fill="none" opacity="0.4" stroke-linecap="round" />`,
-      );
+      continue;
     }
+
+    const { bleed, core } = petalBlobs(flower.petalShape, L, i);
+    petals.push(
+      g +
+        `<path d="${bleed}" fill="${washColor}" opacity="${washOpacity}" filter="url(#${bleedId})" />` +
+        `<path d="${core}" fill="${coreColor}" opacity="${coreOpacity}" filter="url(#${softId})" />` +
+        `<path d="${core}" fill="none" stroke="${ringColor}" stroke-width="${ringWidth}" opacity="${ringOpacity}" stroke-linejoin="round" />` +
+        `<path d="M 0 0 Q ${(L * 0.05).toFixed(2)} ${(-L * 0.5).toFixed(2)} 0 ${(-L * 0.82).toFixed(2)}" stroke="${mixHex(flower.colorHex, DEEP_INK, 0.35 + contrastT)}" stroke-width="${gestureWidth}" fill="none" opacity="0.45" stroke-linecap="round" />` +
+        `</g>`,
+    );
   }
 
-  const centerR = (L * 0.17).toFixed(2);
+  // A handful of loose paint-spatter dots scattered just outside the bloom.
+  const spatters: string[] = [];
+  for (let i = 0; i < 6; i++) {
+    const a = seeded(i, 71) * Math.PI * 2;
+    const dist = L * (1.05 + seeded(i, 72) * 0.55);
+    const r = L * (0.02 + seeded(i, 73) * 0.045) * Math.sqrt(legibility);
+    const sx = cx + Math.sin(a) * dist;
+    const sy = cy - Math.cos(a) * dist * 0.9;
+    spatters.push(
+      `<circle cx="${sx.toFixed(2)}" cy="${sy.toFixed(2)}" r="${r.toFixed(2)}" fill="${coreColor}" opacity="${(0.22 + seeded(i, 74) * 0.25).toFixed(2)}" filter="url(#${softId})" />`,
+    );
+  }
+
+  const stemJitter = (seeded(1, 91) - 0.5) * L * 0.18;
+  const stemBottomY = Math.min(98, cy + L * 1.15);
+  const stemTopY = cy + L * 0.08;
   const label = interactive ? ` data-flower-id="${flower.id}" tabindex="0" role="button" aria-label="${flower.name}"` : "";
 
   return `<g class="pw-flower"${label}>
-    <defs><radialGradient id="${gradId}" cx="38%" cy="30%" r="80%"><stop offset="0%" stop-color="${mixHex(flower.colorHex, "#FFFFFF", 0.28)}" /><stop offset="100%" stop-color="${mixHex(flower.colorHex, INK, 0.06)}" /></radialGradient></defs>
+    <defs>
+      <filter id="${bleedId}" x="-60%" y="-60%" width="220%" height="220%" primitiveUnits="objectBoundingBox">
+        <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="${seed}" result="noise" />
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="${bleedScale}" xChannelSelector="R" yChannelSelector="G" />
+        <feGaussianBlur stdDeviation="0.012" />
+      </filter>
+      <filter id="${softId}" x="-60%" y="-60%" width="220%" height="220%" primitiveUnits="objectBoundingBox">
+        <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed="${seed + 17}" result="noise2" />
+        <feDisplacementMap in="SourceGraphic" in2="noise2" scale="${softScale}" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+    </defs>
+
+    <path d="M ${cx.toFixed(2)} ${stemTopY.toFixed(2)} Q ${(cx + stemJitter).toFixed(2)} ${((stemTopY + stemBottomY) / 2).toFixed(2)} ${cx.toFixed(2)} ${stemBottomY.toFixed(2)}"
+      stroke="${INK_GREEN}" stroke-width="${stemWidth}" fill="none" opacity="0.85" stroke-linecap="round" />
+
+    ${spatters.join("\n    ")}
     ${petals.join("\n    ")}
-    ${veins.join("\n    ")}
-    <circle cx="${cx}" cy="${cy}" r="${centerR}" fill="#FBF3DD" stroke="${INK}" stroke-width="${(strokeW * 0.7).toFixed(2)}" opacity="0.96" />
-    <circle cx="${cx}" cy="${cy}" r="${(Number(centerR) * 0.5).toFixed(2)}" fill="${mixHex("#FBF3DD", INK, 0.12)}" opacity="0.5" />
+
+    <circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${(L * 0.24).toFixed(2)}" fill="${mixHex("#FBEFC9", flower.colorHex, 0.08)}" opacity="${washOpacity}" filter="url(#${bleedId})" />
+    <circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${(L * 0.13).toFixed(2)}" fill="#F6DE9E" opacity="${coreOpacity}" filter="url(#${softId})" />
   </g>`;
 }
 
@@ -146,6 +224,7 @@ export function composeFlowerIconSvg(flower: Flower, opts?: { size?: number }): 
     baseLength: 34,
     instanceId: flower.id,
     interactive: false,
+    renderSize: size,
   });
   return `<svg viewBox="0 0 100 100" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner}</svg>`;
 }
