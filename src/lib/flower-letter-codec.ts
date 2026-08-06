@@ -20,8 +20,41 @@ export type FlowerLetterPayload = {
 
 export const MAX_LETTER_MESSAGE_LENGTH = 600;
 
+/** The compact shape actually put in the URL — short keys, and flowers as
+ * tuples instead of objects, so there's no repeated `"flowerId":`/`"x":`/
+ * etc. per flower. The bigger win is rounding: placement x/y/scale come
+ * out of trig-based layout math (phyllotaxis, presets) with 15+
+ * significant digits, and unlike repeated JSON structure, that kind of
+ * numeric noise doesn't compress away — one decimal place of precision is
+ * visually indistinguishable but cuts each number from ~18 characters to
+ * ~4. Rounding happens here (not at every call site) so every caller gets
+ * a short link automatically. */
+type FlowerLetterWire = {
+  v: 1;
+  l: string;
+  c: string;
+  m: string;
+  s?: string;
+  f: [string, number, number, number][];
+  t: number;
+};
+
+function round(n: number, decimals: number): number {
+  const factor = 10 ** decimals;
+  return Math.round(n * factor) / factor;
+}
+
 export function encodeFlowerLetter(payload: FlowerLetterPayload): string {
-  return compressToEncodedURIComponent(JSON.stringify(payload));
+  const wire: FlowerLetterWire = {
+    v: 1,
+    l: payload.emotionLabel,
+    c: payload.emotionColorHex,
+    m: payload.message,
+    s: payload.senderName,
+    f: payload.flowers.map((fl) => [fl.flowerId, round(fl.x, 1), round(fl.y, 1), round(fl.scale, 2)]),
+    t: payload.createdAt,
+  };
+  return compressToEncodedURIComponent(JSON.stringify(wire));
 }
 
 function isValidFlowerEntry(f: unknown): f is FlowerLetterPayload["flowers"][number] {
@@ -39,13 +72,45 @@ function isValidFlowerEntry(f: unknown): f is FlowerLetterPayload["flowers"][num
   );
 }
 
+function isValidFlowerTuple(f: unknown): f is [string, number, number, number] {
+  return (
+    Array.isArray(f) &&
+    typeof f[0] === "string" &&
+    f[0].length > 0 &&
+    typeof f[1] === "number" &&
+    Number.isFinite(f[1]) &&
+    typeof f[2] === "number" &&
+    Number.isFinite(f[2]) &&
+    typeof f[3] === "number" &&
+    Number.isFinite(f[3])
+  );
+}
+
 export function decodeFlowerLetter(encoded: string): FlowerLetterPayload | null {
   try {
     const json = decompressFromEncodedURIComponent(encoded);
     if (!json) return null;
     const parsed = JSON.parse(json);
+    if (parsed?.v !== 1) return null;
+
+    // The compact wire format (current encodeFlowerLetter output) has a
+    // short "f" array of tuples; older already-shared links used the
+    // original named-object shape and must keep decoding correctly.
+    if (Array.isArray(parsed.f)) {
+      if (typeof parsed.m !== "string" || typeof parsed.l !== "string" || typeof parsed.c !== "string") return null;
+      const flowers = (parsed.f as unknown[]).filter(isValidFlowerTuple).map(([flowerId, x, y, scale]) => ({ flowerId, x, y, scale }));
+      return {
+        v: 1,
+        emotionLabel: parsed.l,
+        emotionColorHex: parsed.c,
+        message: parsed.m,
+        senderName: typeof parsed.s === "string" ? parsed.s : undefined,
+        flowers,
+        createdAt: typeof parsed.t === "number" ? parsed.t : Date.now(),
+      };
+    }
+
     if (
-      parsed?.v !== 1 ||
       typeof parsed.message !== "string" ||
       typeof parsed.emotionLabel !== "string" ||
       typeof parsed.emotionColorHex !== "string" ||
