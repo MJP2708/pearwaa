@@ -20,6 +20,11 @@ const paths = [
     title: "Send instead of speak",
     description: "A gentler way to reach someone when words won't come.",
   },
+  {
+    href: "/letters",
+    title: "Create a Letter",
+    description: "Already know what to say? Write it as a real letter, with a bouquet attached.",
+  },
 ];
 
 export default function Home() {
@@ -61,7 +66,7 @@ export default function Home() {
         <h2 id="paths-heading" className="sr-only">
           Three quiet ways to use Pearwaa
         </h2>
-        <div className="grid gap-5 sm:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {paths.map((path, i) => (
             <FadeIn key={path.href} delay={i * 0.08}>
               <Link

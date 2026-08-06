@@ -1,8 +1,9 @@
-  "use client";
+"use client";
 
 import { useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { decodeFlowerLetter } from "@/lib/flower-letter-codec";
 import { buildWallpaperSvgFromPlacements, type FlowerPlacement } from "@/lib/export-image";
 import { lightenHex } from "@/lib/color";
@@ -11,6 +12,7 @@ import { FadeIn } from "@/components/motion/fade-in";
 export function LetterClient() {
   const searchParams = useSearchParams();
   const encoded = searchParams.get("d");
+  const [opened, setOpened] = useState(false);
 
   const payload = useMemo(() => (encoded ? decodeFlowerLetter(encoded) : null), [encoded]);
 
@@ -52,33 +54,82 @@ export function LetterClient() {
         background: `linear-gradient(180deg, ${lightenHex(payload.emotionColorHex, 0.88)}, ${lightenHex(payload.emotionColorHex, 0.96)})`,
       }}
     >
-      <FadeIn className="w-full max-w-md">
-        <div
-          className="mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-[2rem] [&>svg]:h-full [&>svg]:w-full"
-          dangerouslySetInnerHTML={{ __html: bouquetSvg }}
-        />
-
-        {payload.message && (
-          <div className="mt-6 rounded-3xl bg-card/90 p-6 shadow-sm">
-            <p className="whitespace-pre-wrap font-heading text-lg leading-relaxed text-foreground">
-              {payload.message}
-            </p>
-          </div>
-        )}
-
-        <p className="mt-6 text-center font-heading text-base text-foreground/80">
-          From {payload.senderName?.trim() || "a friend"}
-        </p>
-        <p className="mt-1 text-center text-xs text-muted-foreground">
-          Sent {new Date(payload.createdAt).toLocaleDateString()} · via{" "}
-          <Link
-            href="/"
-            className="underline decoration-dotted underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      <AnimatePresence mode="wait">
+        {!opened ? (
+          <motion.div
+            key="envelope"
+            className="flex w-full max-w-sm flex-col items-center"
+            exit={{ opacity: 0, scale: 0.94 }}
+            transition={{ duration: 0.35 }}
           >
-            Pearwaa
-          </Link>
-        </p>
-      </FadeIn>
+            <button
+              type="button"
+              onClick={() => setOpened(true)}
+              aria-label="Open your flower letter"
+              className="group relative aspect-[4/3] w-full max-w-xs rounded-2xl shadow-md outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              style={{ backgroundColor: lightenHex(payload.emotionColorHex, 0.75) }}
+            >
+              <span
+                className="absolute inset-x-0 top-0 h-1/2 origin-top transition-transform duration-300 group-hover:-translate-y-0.5"
+                style={{
+                  backgroundColor: lightenHex(payload.emotionColorHex, 0.55),
+                  clipPath: "polygon(0 0, 100% 0, 50% 100%)",
+                }}
+                aria-hidden="true"
+              />
+              <span
+                className="absolute inset-x-0 bottom-0 flex h-2/3 items-end justify-center pb-5"
+                aria-hidden="true"
+              >
+                <span
+                  className="flex size-11 items-center justify-center rounded-full font-heading text-lg text-primary-foreground shadow-sm"
+                  style={{ backgroundColor: payload.emotionColorHex }}
+                >
+                  P
+                </span>
+              </span>
+            </button>
+            <p className="mt-6 font-heading text-lg text-foreground/85">A flower letter has arrived</p>
+            <p className="mt-1 text-sm text-muted-foreground">Tap the envelope to open it.</p>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="contents"
+            className="w-full max-w-md"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <FadeIn>
+              <div
+                className="mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-[2rem] [&>svg]:h-full [&>svg]:w-full"
+                dangerouslySetInnerHTML={{ __html: bouquetSvg }}
+              />
+
+              {payload.message && (
+                <div className="mt-6 rounded-3xl bg-card/90 p-6 shadow-sm">
+                  <p className="whitespace-pre-wrap font-heading text-lg leading-relaxed text-foreground">
+                    {payload.message}
+                  </p>
+                </div>
+              )}
+
+              <p className="mt-6 text-center font-heading text-base text-foreground/80">
+                From {payload.senderName?.trim() || "a friend"}
+              </p>
+              <p className="mt-1 text-center text-xs text-muted-foreground">
+                Sent {new Date(payload.createdAt).toLocaleDateString()} · via{" "}
+                <Link
+                  href="/"
+                  className="underline decoration-dotted underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                >
+                  Pearwaa
+                </Link>
+              </p>
+            </FadeIn>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

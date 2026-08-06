@@ -27,10 +27,16 @@ export function ProceduralFlower({ flower, colorHex, targetBloomT, reducedMotion
   const currentBloomRef = useRef(reducedMotion ? targetBloomT : 0);
   const { petalShape, petalCount, maxOpenDeg } = flower.model;
   const isCluster = petalShape === "cluster";
+  // Spike-type blooms (lavender, and any future raceme flower) grow as a
+  // tight column of many tiny buds around a central stalk — nothing like
+  // "cluster"'s loose spherical dome of bigger round petals, which is
+  // what previously made lavender read as a vague blob rather than
+  // lavender specifically.
+  const isSpike = petalShape === "spike";
 
   const petalGeometry = useMemo(
-    () => getPetalGeometry(petalShape, isCluster ? 0.34 : 0.62, isCluster ? 0.3 : 0.34),
-    [petalShape, isCluster],
+    () => getPetalGeometry(petalShape, isSpike ? 0.075 : isCluster ? 0.34 : 0.62, isSpike ? 0.045 : isCluster ? 0.3 : 0.34),
+    [petalShape, isCluster, isSpike],
   );
 
   // A soft toon material — gentle painterly shading bands instead of
@@ -54,7 +60,24 @@ export function ProceduralFlower({ flower, colorHex, targetBloomT, reducedMotion
 
     for (let i = 0; i < petalCount; i++) {
       const jitter = seeded(i, 0);
-      if (isCluster) {
+      if (isSpike) {
+        const jitter2 = seeded(i, 500);
+        const t = petalCount > 1 ? i / (petalCount - 1) : 0;
+        const spikeBaseY = headY - 0.02;
+        const spikeHeight = 0.36;
+        const droop = wiltT * t * t * 0.12;
+        const y = spikeBaseY + t * spikeHeight - droop;
+        const azimuth = i * GOLDEN_ANGLE * (Math.PI / 180);
+        const coreRadius = 0.05 * (1 - t * 0.4);
+        // Closed buds hug the central stalk; as the flower opens they
+        // poke outward slightly — the "bloom" here is buds separating
+        // from the spike, not petals fanning open.
+        const budRadius = coreRadius + (0.018 + jitter * 0.014) * (0.3 + openT * 0.7);
+        dummy.position.set(Math.cos(azimuth) * budRadius, y, Math.sin(azimuth) * budRadius);
+        dummy.rotation.set((jitter2 - 0.5) * 0.5, azimuth, Math.PI / 2 + (jitter - 0.5) * 0.4);
+        const scale = (0.75 + jitter2 * 0.35) * (1 - wiltT * 0.2);
+        dummy.scale.setScalar(scale);
+      } else if (isCluster) {
         const idx = i + 0.5;
         const azimuth = idx * GOLDEN_ANGLE * (Math.PI / 180);
         const polar = (0.15 + openT * 0.55 + wiltT * 0.25) * Math.min(1, Math.sqrt(idx / petalCount) * 1.6 + 0.3);
@@ -97,7 +120,7 @@ export function ProceduralFlower({ flower, colorHex, targetBloomT, reducedMotion
   useEffect(() => {
     applyBloom(currentBloomRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [colorHex, petalShape, petalCount, maxOpenDeg, isCluster]);
+  }, [colorHex, petalShape, petalCount, maxOpenDeg, isCluster, isSpike]);
 
   useFrame((_, delta) => {
     if (reducedMotion) {
@@ -121,12 +144,21 @@ export function ProceduralFlower({ flower, colorHex, targetBloomT, reducedMotion
         <meshToonMaterial color={STEM_COLOR} gradientMap={getToonGradientMap()} />
       </mesh>
 
+      {isSpike && (
+        <mesh position={[0, 0.86 + 0.16, 0]}>
+          <cylinderGeometry args={[0.01, 0.022, 0.36, 6]} />
+          <meshToonMaterial color={STEM_COLOR} gradientMap={getToonGradientMap()} />
+        </mesh>
+      )}
+
       <instancedMesh ref={petalMeshRef} args={[petalGeometry, petalMaterial, petalCount]} castShadow />
 
-      <mesh position={[0, 0.855, 0]} scale={0.1}>
-        <sphereGeometry args={[1, 14, 12]} />
-        <meshToonMaterial color={CENTER_COLOR} gradientMap={getToonGradientMap()} />
-      </mesh>
+      {!isSpike && (
+        <mesh position={[0, 0.855, 0]} scale={0.1}>
+          <sphereGeometry args={[1, 14, 12]} />
+          <meshToonMaterial color={CENTER_COLOR} gradientMap={getToonGradientMap()} />
+        </mesh>
+      )}
     </group>
   );
 }

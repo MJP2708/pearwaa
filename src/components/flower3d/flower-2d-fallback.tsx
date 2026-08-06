@@ -12,6 +12,9 @@ const SHAPE_MAP: Record<PetalShape3D, PetalShape> = {
   cluster: "cluster",
   ruffled: "round",
   trumpet: "bell",
+  // The 2D glyph system has no dedicated spike/raceme shape — a tight
+  // dense cluster is the closest existing look for the fallback icon.
+  spike: "cluster",
 };
 
 /** Shown when WebGL isn't available — the same info panel still works,

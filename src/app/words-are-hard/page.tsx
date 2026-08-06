@@ -6,7 +6,7 @@ import { IntroStep } from "@/components/words/intro-step";
 import { GuidedQuestions } from "@/components/words/guided-questions";
 import { FeelingReveal } from "@/components/words/feeling-reveal";
 import { MessageStep } from "@/components/words/message-step";
-import { SendLetterStep } from "@/components/words/send-letter-step";
+import { ShareCardStep } from "@/components/words/share-card-step";
 import { EmotionPicker } from "@/components/create/emotion-picker";
 import { BouquetBuilder } from "@/components/create/bouquet-builder";
 import { getEmotion, type Emotion } from "@/data/emotions";
@@ -144,7 +144,7 @@ export default function WordsAreHardPage() {
 
         {step === "card" && emotion && (
           <motion.div key="card" {...stepTransition}>
-            <SendLetterStep
+            <ShareCardStep
               emotion={emotion}
               placements={placements}
               message={message}

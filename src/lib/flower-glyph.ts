@@ -145,7 +145,14 @@ export function flowerGlyphMarkup(
   }
 
   const stemJitter = (seeded(1, 91) - 0.5) * L * 0.18;
-  const stemBottomY = Math.min(98, cy + L * 1.15);
+  // Not clamped to a fixed coordinate — this function is called both in
+  // the 0-100 icon viewBox space (composeFlowerIconSvg / bouquet-svg) and
+  // in absolute pixel space on a much larger canvas (buildWallpaperSvgFrom
+  // Placements), so a hardcoded cap like "98" is meaningless in the
+  // latter and previously sent every stem shooting up to pixel-y-98
+  // regardless of the flower's real position. The SVG viewport already
+  // clips anything that runs past its own bounds, so no clamp is needed.
+  const stemBottomY = cy + L * 1.15;
   const stemTopY = cy + L * 0.08;
   const label = interactive ? ` data-flower-id="${escapeXml(flower.id)}" tabindex="0" role="button" aria-label="${escapeXml(flower.name)}"` : "";
 

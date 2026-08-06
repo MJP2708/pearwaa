@@ -2,15 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { RotateCcw } from "lucide-react";
+import { Music, RotateCcw, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Mascot } from "@/components/mascot";
 import { FlowerGlyphIcon } from "@/components/flower-glyph-icon";
 import { CarGlyph } from "@/components/delivery/car-glyph";
 import { SceneryDoodles } from "@/components/delivery/scenery-doodles";
-import { DELIVERY_FLOWERS } from "@/data/delivery-flowers";
+import { DELIVERY_FLOWER_IDS } from "@/data/delivery-flowers";
 import { getFlower } from "@/data/flowers";
 import { useAccessibility } from "@/components/providers/accessibility-provider";
+import { useGentleMusic } from "@/lib/use-gentle-music";
 
 const SCENE_W = 800;
 const SCENE_H = 460;
@@ -23,10 +24,29 @@ const MAX_SPEED = 230;
 const ACCEL = 3.4;
 const FRICTION = 2.8;
 const MAX_TURN_RATE = 175;
-const PICKUP_RADIUS = 32;
+// The pickup check itself runs every animation frame (immediate, not
+// throttled) — the "laggy" feel was actually a hitbox too small for the
+// visuals: a 40px flower marker + ~44px car need roughly this much
+// center-to-center clearance before they visually touch, so the old
+// radius (32) required the car to visibly drive *into* the flower before
+// registering. Matching the radius to the visuals makes pickup feel
+// instant right as the car reaches the flower.
+const PICKUP_RADIUS = 42;
 const STEP = 42;
+const MIN_FLOWER_SPACING = 95;
+const MIN_START_DISTANCE = 120;
 
-type FlowerItem = { id: string; flowerId: string; x: number; y: number; collected: boolean };
+// A gentle "time of day" shift across replays — same low-key palette
+// family, just enough variety that the scene doesn't look identical
+// every time you come back to it.
+const SKY_PALETTES = [
+  { top: "#F3ECFF", bottom: "#EFE6FB" },
+  { top: "#FFF1E0", bottom: "#FDE9EE" },
+  { top: "#E9F3EC", bottom: "#EAF0FB" },
+  { top: "#FDECE3", bottom: "#F3E9FB" },
+];
+
+type FlowerItem = { id: string; flowerId: string; x: number; y: number; collected: boolean; special: boolean };
 type Dir = "up" | "down" | "left" | "right";
 
 function clamp(v: number, min: number, max: number) {
@@ -56,14 +76,70 @@ function normalizeKey(key: string): Dir | null {
   }
 }
 
-function initFlowers(): FlowerItem[] {
-  return DELIVERY_FLOWERS.map((f) => ({ ...f, collected: false }));
+/** Picks a spot with real breathing room from the car's start and from
+ * every flower already placed — a handful of rejection-sampling attempts,
+ * falling back to whatever the last attempt found rather than looping
+ * forever if the scene is nearly full. */
+function randomFlowerPosition(existing: { x: number; y: number }[]): { x: number; y: number } {
+  const marginX = CAR_PAD + 34;
+  const marginY = CAR_PAD + 26;
+  let candidate = { x: SCENE_W / 2, y: SCENE_H / 2 };
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const x = marginX + Math.random() * (SCENE_W - marginX * 2);
+    const y = marginY + Math.random() * (SCENE_H - marginY * 2);
+    candidate = { x, y };
+    const farFromStart = Math.hypot(x - CAR_START.x, y - CAR_START.y) > MIN_START_DISTANCE;
+    const farFromOthers = existing.every((p) => Math.hypot(p.x - x, p.y - y) > MIN_FLOWER_SPACING);
+    if (farFromStart && farFromOthers) return candidate;
+  }
+  return candidate;
+}
+
+// A fixed, deterministic layout — used only for the very first render
+// (see the mount effect below). Math.random() positions are randomized
+// only after mount: calling it from the initial state initializer would
+// run during SSR too, and the server's random values would never match
+// the client's, causing a hydration mismatch.
+const FALLBACK_POSITIONS = [
+  { x: 210, y: 100 },
+  { x: 420, y: 70 },
+  { x: 650, y: 140 },
+  { x: 160, y: 330 },
+  { x: 400, y: 380 },
+  { x: 620, y: 350 },
+  { x: 520, y: 230 },
+];
+
+function initFlowers(randomize: boolean): FlowerItem[] {
+  if (!randomize) {
+    return DELIVERY_FLOWER_IDS.map((flowerId, i) => {
+      const pos = FALLBACK_POSITIONS[i % FALLBACK_POSITIONS.length];
+      return { id: `f${i}`, flowerId, x: pos.x, y: pos.y, collected: false, special: false };
+    });
+  }
+  const placed: { x: number; y: number }[] = [];
+  // One gentle rare-flower moment per playthrough — visually a little
+  // brighter/glowing, not scored or announced any differently, just a
+  // small "oh, that one's special" delight.
+  const specialIndex = Math.floor(Math.random() * DELIVERY_FLOWER_IDS.length);
+  return DELIVERY_FLOWER_IDS.map((flowerId, i) => {
+    const pos = randomFlowerPosition(placed);
+    placed.push(pos);
+    return { id: `f${i}`, flowerId, x: pos.x, y: pos.y, collected: false, special: i === specialIndex };
+  });
+}
+
+function randomSkyPalette() {
+  return SKY_PALETTES[Math.floor(Math.random() * SKY_PALETTES.length)];
 }
 
 export function DeliveryScene() {
   const { reducedMotion } = useAccessibility();
-  const [flowers, setFlowers] = useState<FlowerItem[]>(() => initFlowers());
+  const [flowers, setFlowers] = useState<FlowerItem[]>(() => initFlowers(false));
   const [hasFocused, setHasFocused] = useState(false);
+  const [sky, setSky] = useState(SKY_PALETTES[0]);
+  const [musicOn, setMusicOn] = useState(false);
+  useGentleMusic(musicOn, () => setMusicOn(false));
   // The visual pickup animation (fade/scale) and the running "N of N"
   // count convey nothing about *which* flower was just collected to a
   // screen-reader user — the rest of the app treats each flower's name
@@ -81,6 +157,15 @@ export function DeliveryScene() {
   useEffect(() => {
     flowersRef.current = flowers;
   }, [flowers]);
+
+  // Randomize the layout and sky only after mount (client-only) — see the
+  // comment on FALLBACK_POSITIONS above for why this can't happen in the
+  // initial state itself.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional one-time client-only randomization, see comment above
+    setFlowers(initFlowers(true));
+    setSky(randomSkyPalette());
+  }, []);
 
   const totalCount = flowers.length;
   const collectedCount = flowers.filter((f) => f.collected).length;
@@ -206,8 +291,9 @@ export function DeliveryScene() {
     pressedKeysRef.current.clear();
     physicsRef.current = { ...CAR_START, speed: 0 };
     applyCarTransform(CAR_START.x, CAR_START.y, CAR_START.angle);
-    setFlowers(initFlowers());
+    setFlowers(initFlowers(true));
     setLastCollected(null);
+    setSky(randomSkyPalette());
   }
 
   return (
@@ -226,8 +312,8 @@ export function DeliveryScene() {
         <svg viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} className="absolute inset-0 h-full w-full">
           <defs>
             <radialGradient id="delivery-bg" cx="50%" cy="35%" r="80%">
-              <stop offset="0%" stopColor="#F3ECFF" />
-              <stop offset="100%" stopColor="#EFE6FB" />
+              <stop offset="0%" stopColor={sky.top} />
+              <stop offset="100%" stopColor={sky.bottom} />
             </radialGradient>
           </defs>
           <rect x="0" y="0" width={SCENE_W} height={SCENE_H} fill="url(#delivery-bg)" />
@@ -253,16 +339,27 @@ export function DeliveryScene() {
                   marginTop: -20,
                 }}
               >
+                {f.special && !reducedMotion && (
+                  <motion.div
+                    className="absolute inset-0 rounded-full bg-primary/25"
+                    animate={{ scale: [1, 1.35, 1], opacity: [0.55, 0.15, 0.55] }}
+                    transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                    aria-hidden="true"
+                  />
+                )}
+                {f.special && reducedMotion && (
+                  <div className="absolute inset-0 rounded-full bg-primary/20" aria-hidden="true" />
+                )}
                 <AnimatePresence>
                   <motion.div
                     key={f.id}
-                    className="flex items-center justify-center rounded-full bg-white/60 shadow-sm"
+                    className="relative flex items-center justify-center rounded-full bg-white/60 shadow-sm"
                     style={{ width: 40, height: 40 }}
                     initial={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 1.7 }}
                     transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
                   >
-                    <FlowerGlyphIcon flower={flower} size={34} />
+                    <FlowerGlyphIcon flower={flower} size={f.special ? 40 : 34} />
                   </motion.div>
                 </AnimatePresence>
               </div>
@@ -306,10 +403,22 @@ export function DeliveryScene() {
             );
           })}
         </div>
-        <Button variant="ghost" size="sm" className="rounded-full text-muted-foreground" onClick={handleReset}>
-          <RotateCcw className="size-3.5" aria-hidden="true" />
-          Reset scene
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="rounded-full text-muted-foreground"
+            onClick={() => setMusicOn((v) => !v)}
+            aria-pressed={musicOn}
+          >
+            {musicOn ? <Music className="size-3.5" aria-hidden="true" /> : <VolumeX className="size-3.5" aria-hidden="true" />}
+            {musicOn ? "Music on" : "Music off"}
+          </Button>
+          <Button variant="ghost" size="sm" className="rounded-full text-muted-foreground" onClick={handleReset}>
+            <RotateCcw className="size-3.5" aria-hidden="true" />
+            Reset scene
+          </Button>
+        </div>
       </div>
 
       <p className="sr-only" aria-live="polite">

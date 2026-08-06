@@ -37,6 +37,18 @@ function petalOutline(shape: PetalShape3D, length: number, width: number): THREE
     case "cluster":
       s.absarc(0, length * 0.55, width * 0.42, 0, Math.PI * 2, false);
       break;
+    case "spike": {
+      // A single tiny bud — not a petal at all. Flowers that grow as a
+      // dense raceme (lavender, and similar spike-type blooms) read as a
+      // narrow column of these packed tightly around a central stalk,
+      // handled by ProceduralFlower's isSpike layout — very different
+      // from "cluster"'s loose spherical dome of bigger round petals.
+      const bw = width * 0.55;
+      s.moveTo(0, 0);
+      s.bezierCurveTo(-bw, length * 0.25, -bw * 0.7, length * 0.9, 0, length);
+      s.bezierCurveTo(bw * 0.7, length * 0.9, bw, length * 0.25, 0, 0);
+      break;
+    }
     case "ruffled": {
       s.moveTo(0, 0);
       const steps = 7;

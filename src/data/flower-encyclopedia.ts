@@ -1,7 +1,7 @@
 import type { EmotionId } from "./emotions";
 import { flowers as bouquetFlowers, type Flower } from "./flowers";
 
-export type PetalShape3D = "round" | "pointed" | "star" | "cluster" | "ruffled" | "trumpet";
+export type PetalShape3D = "round" | "pointed" | "star" | "cluster" | "ruffled" | "trumpet" | "spike";
 
 export type ColorVariant = {
   id: string;
@@ -142,7 +142,11 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "white", label: "White", hex: "#F0EDE8", symbolism: "A clean slate, quietly offered." },
     ],
     habitat: { label: "A lavender field in golden light", skyTop: "#B79FCB", skyBottom: "#F4D9A8", ground: "#8B7BA8", fog: "#E0C8E8" },
-    model: { petalShape: "cluster", petalCount: 10, maxOpenDeg: 90, hasWiltedStage: true },
+    // Lavender doesn't read as "flower" with the generic round-petal
+    // dome — real lavender is a narrow spike of many tiny tight buds.
+    // "spike" is a dedicated layout (see ProceduralFlower's isSpike
+    // branch), not a bigger petalCount on the usual shapes.
+    model: { petalShape: "spike", petalCount: 26, maxOpenDeg: 90, hasWiltedStage: true },
   },
   {
     id: "sunflower",
@@ -476,10 +480,20 @@ export function getEncyclopediaFlower(id: string): EncyclopediaFlower | undefine
   return ENCYCLOPEDIA_FLOWERS.find((f) => f.id === id);
 }
 
+const PETAL_SHAPE_3D_TO_2D: Record<PetalShape3D, Flower["petalShape"]> = {
+  round: "round",
+  pointed: "pointed",
+  star: "star",
+  cluster: "cluster",
+  trumpet: "bell",
+  ruffled: "round",
+  spike: "cluster",
+};
+
 /** Adapts an EncyclopediaFlower (3D/detail-page data) into the legacy
  * Flower shape the 2D glyph/bouquet pipeline expects. The two datasets'
- * petal-shape vocabularies don't line up 1:1 — "trumpet" and "ruffled"
- * (3D-only shapes) fall back to the closest 2D equivalent. */
+ * petal-shape vocabularies don't line up 1:1 — 3D-only shapes fall back
+ * to the closest 2D equivalent. */
 export function toLegacyFlower(flower: EncyclopediaFlower): Flower {
   return {
     id: flower.id,
@@ -489,7 +503,7 @@ export function toLegacyFlower(flower: EncyclopediaFlower): Flower {
     bloomStory: flower.bloomStory,
     emotions: flower.emotions,
     colorHex: flower.colors[0]?.hex ?? "#C9B7E8",
-    petalShape: flower.model.petalShape === "trumpet" ? "bell" : flower.model.petalShape === "ruffled" ? "round" : flower.model.petalShape,
+    petalShape: PETAL_SHAPE_3D_TO_2D[flower.model.petalShape],
     petalCount: flower.model.petalCount,
   };
 }
