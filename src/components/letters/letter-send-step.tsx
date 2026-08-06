@@ -4,8 +4,7 @@ import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Check, Copy, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { FlowerPlacement } from "@/lib/export-image";
-import { composeBouquetSvg } from "@/lib/bouquet-svg";
+import { buildWallpaperSvgFromPlacements, type FlowerPlacement } from "@/lib/export-image";
 import { encodeFlowerLetter, buildLetterUrl, type FlowerLetterPayload } from "@/lib/flower-letter-codec";
 import { useSentLetters } from "@/lib/use-sent-letters";
 import { useAccessibility } from "@/components/providers/accessibility-provider";
@@ -35,10 +34,15 @@ export function LetterSendStep({ emotion, message, senderName, placements, onBac
   const [error, setError] = useState<string | null>(null);
   const { records, addRecord, removeRecord } = useSentLetters();
 
-  const flowerIds = useMemo(() => placements.map((p) => p.flowerId), [placements]);
+  // Must build from the actual saved placements (x/y/scale), not just the
+  // flower ids — composeBouquetSvg recomputes a fresh generic phyllotaxis
+  // layout from ids alone, which silently discarded whatever preset
+  // (Heart/Circle/Letter) or manual drag arrangement the sender built.
+  // buildWallpaperSvgFromPlacements is the same function the receiving
+  // view uses, so what's previewed here is what actually gets sent.
   const bouquetSvg = useMemo(
-    () => composeBouquetSvg(flowerIds, { size: 280, interactive: false }),
-    [flowerIds],
+    () => buildWallpaperSvgFromPlacements(placements, { width: 280, height: 280, accentHex: emotion.colorHex }),
+    [placements, emotion.colorHex],
   );
 
   function handleSeal() {

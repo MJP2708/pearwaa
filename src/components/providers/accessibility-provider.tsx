@@ -24,20 +24,34 @@ const STORAGE_KEY = "pearwaa:a11y";
 
 type StoredPrefs = { reducedMotion: boolean; highContrast: boolean };
 
+/** Whether the OS/browser itself asks for reduced motion — the baseline
+ * before any in-app choice. Someone who has this set at the OS level and
+ * has never opened Pearwaa's own accessibility menu should still get
+ * reduced motion by default; this used to be ignored entirely, with the
+ * in-app toggle defaulting to `false` regardless of the OS preference. */
+function prefersReducedMotionOS(): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 function readStoredPrefs(): StoredPrefs {
   if (typeof window === "undefined") {
     return { reducedMotion: false, highContrast: false };
   }
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { reducedMotion: false, highContrast: false };
+    if (!raw) return { reducedMotion: prefersReducedMotionOS(), highContrast: false };
     const parsed = JSON.parse(raw);
     return {
+      // Once the user has explicitly set this in Pearwaa's own menu, that
+      // choice wins even if it means turning OS-level reduced motion back
+      // off — an explicit "off" here is a real preference, not an
+      // oversight, so it shouldn't be silently overridden by the OS flag.
       reducedMotion: Boolean(parsed.reducedMotion),
       highContrast: Boolean(parsed.highContrast),
     };
   } catch {
-    return { reducedMotion: false, highContrast: false };
+    return { reducedMotion: prefersReducedMotionOS(), highContrast: false };
   }
 }
 
@@ -100,13 +114,20 @@ export function useAccessibility() {
   return ctx;
 }
 
-/** Inline script injected before hydration so the high-contrast class
- * applies on first paint, avoiding a flash of default-contrast UI. */
+/** Inline script injected before hydration so the high-contrast/reduced-
+ * motion classes apply on first paint, avoiding a flash of the default
+ * (motion-on, normal-contrast) UI — including for someone who has never
+ * opened Pearwaa's own accessibility menu but has reduced motion set at
+ * the OS level. */
 export const noFlashScript = `
 (function () {
   try {
     var raw = window.localStorage.getItem(${JSON.stringify(STORAGE_KEY)});
-    if (!raw) return;
+    var osReducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!raw) {
+      if (osReducedMotion) document.documentElement.classList.add("motion-reduced");
+      return;
+    }
     var prefs = JSON.parse(raw);
     if (prefs.highContrast) document.documentElement.classList.add("contrast-more");
     if (prefs.reducedMotion) document.documentElement.classList.add("motion-reduced");

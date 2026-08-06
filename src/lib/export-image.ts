@@ -1,5 +1,4 @@
 import { getFlower } from "@/data/flowers";
-import { composeBouquetSvg } from "./bouquet-svg";
 import { flowerGlyphMarkup } from "./flower-glyph";
 import { lightenHex } from "./color";
 import { escapeXml } from "./utils";
@@ -84,7 +83,7 @@ export function buildWallpaperSvgFromPlacements(
 }
 
 export function buildShareCardSvg(
-  flowerIds: string[],
+  placements: FlowerPlacement[],
   message: string,
   opts: { width: number; height: number; accentHex: string },
 ): string {
@@ -92,7 +91,25 @@ export function buildShareCardSvg(
   const bouquetSize = width * 0.5;
   const bx = (width - bouquetSize) / 2;
   const by = height * 0.09;
-  const bouquetSvg = composeBouquetSvg(flowerIds, { size: bouquetSize, interactive: false });
+  // Built from the actual saved placements (x/y/scale), not just flower
+  // ids — composeBouquetSvg(ids) recomputes a fresh generic phyllotaxis
+  // layout, silently discarding whatever preset (Heart/Circle/Letter) or
+  // manual drag arrangement was actually built.
+  const baseLength = bouquetSize * 0.09;
+  const bouquetFlowerMarkup = placements
+    .map((p, i) => {
+      const flower = getFlower(p.flowerId);
+      if (!flower) return "";
+      return flowerGlyphMarkup(flower, {
+        cx: bx + (p.x / 100) * bouquetSize,
+        cy: by + (p.y / 100) * bouquetSize,
+        scale: p.scale,
+        baseLength,
+        instanceId: `sc-${p.key}-${i}`,
+        interactive: false,
+      });
+    })
+    .join("\n");
 
   const lines = wrapTextToLines(message, 30);
   const fontSize = height * 0.032;
@@ -115,7 +132,7 @@ export function buildShareCardSvg(
       </linearGradient>
     </defs>
     <rect x="0" y="0" width="${width}" height="${height}" fill="url(#sc-bg)" />
-    <g transform="translate(${bx.toFixed(1)} ${by.toFixed(1)})">${bouquetSvg}</g>
+    ${bouquetFlowerMarkup}
     ${messageMarkup}
     <text x="${width / 2}" y="${(height * 0.965).toFixed(1)}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${(height * 0.012).toFixed(1)}" letter-spacing="3" fill="${INK}" opacity="0.45">PEARWAA</text>
   </svg>`;

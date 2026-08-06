@@ -7,7 +7,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { decodeFlowerLetter } from "@/lib/flower-letter-codec";
 import { buildWallpaperSvgFromPlacements, type FlowerPlacement } from "@/lib/export-image";
 import { lightenHex } from "@/lib/color";
-import { FadeIn } from "@/components/motion/fade-in";
+
+const revealEase = [0.22, 1, 0.36, 1] as const;
 
 export function LetterClient() {
   const searchParams = useSearchParams();
@@ -93,27 +94,37 @@ export function LetterClient() {
             <p className="mt-1 text-sm text-muted-foreground">Tap the envelope to open it.</p>
           </motion.div>
         ) : (
-          <motion.div
-            key="contents"
-            className="w-full max-w-md"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <FadeIn>
-              <div
-                className="mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-[2rem] [&>svg]:h-full [&>svg]:w-full"
-                dangerouslySetInnerHTML={{ __html: bouquetSvg }}
-              />
+          <motion.div key="contents" className="w-full max-w-md">
+            {/* Bouquet opens first — a blooming scale-and-fade rather than a
+                flat reveal — then the letter's contents settle in after it,
+                each a beat behind the last (the same staggered-reveal feel
+                as a flower's Bloom Story). */}
+            <motion.div
+              className="mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-[2rem] [&>svg]:h-full [&>svg]:w-full"
+              initial={{ opacity: 0, scale: 0.86 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.7, ease: revealEase }}
+              dangerouslySetInnerHTML={{ __html: bouquetSvg }}
+            />
 
-              {payload.message && (
-                <div className="mt-6 rounded-3xl bg-card/90 p-6 shadow-sm">
-                  <p className="whitespace-pre-wrap font-heading text-lg leading-relaxed text-foreground">
-                    {payload.message}
-                  </p>
-                </div>
-              )}
+            {payload.message && (
+              <motion.div
+                className="mt-6 rounded-3xl bg-card/90 p-6 shadow-sm"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.3, ease: revealEase }}
+              >
+                <p className="whitespace-pre-wrap font-heading text-lg leading-relaxed text-foreground">
+                  {payload.message}
+                </p>
+              </motion.div>
+            )}
 
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: payload.message ? 0.48 : 0.3, ease: revealEase }}
+            >
               <p className="mt-6 text-center font-heading text-base text-foreground/80">
                 From {payload.senderName?.trim() || "a friend"}
               </p>
@@ -126,7 +137,7 @@ export function LetterClient() {
                   Pearwaa
                 </Link>
               </p>
-            </FadeIn>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

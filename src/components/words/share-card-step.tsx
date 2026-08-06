@@ -21,15 +21,14 @@ type Props = {
  * /letters now, for someone who already knows what they want to say.
  */
 export function ShareCardStep({ emotion, message, senderName, placements, onBack, onRestart }: Props) {
-  const flowerIds = useMemo(() => placements.map((p) => p.flowerId), [placements]);
   const previewSvg = useMemo(
     () =>
-      buildShareCardSvg(flowerIds, message, {
+      buildShareCardSvg(placements, message, {
         width: SHARE_CARD_SIZE.width,
         height: SHARE_CARD_SIZE.height,
         accentHex: emotion.colorHex,
       }),
-    [flowerIds, message, emotion.colorHex],
+    [placements, message, emotion.colorHex],
   );
 
   const [isExporting, setIsExporting] = useState(false);
