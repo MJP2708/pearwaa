@@ -1,7 +1,25 @@
 import type { EmotionId } from "./emotions";
 import { flowers as bouquetFlowers, type Flower } from "./flowers";
 
-export type PetalShape3D = "round" | "pointed" | "star" | "cluster" | "ruffled" | "trumpet" | "spike";
+export type PetalShape3D =
+  | "round"
+  | "pointed"
+  | "star"
+  | "cluster"
+  | "ruffled"
+  | "trumpet"
+  | "spike"
+  /** Layered concentric rings with a rotation offset per ring (rose) —
+   * same petal silhouette as "round", distinct structure via layout. */
+  | "spiral"
+  /** Two overlapping rings of 3 broad petals forming a cup (tulip). */
+  | "cup"
+  /** Dense tiny-seed disc center + a ring of thin ray petals (sunflower,
+   * daisy) — the two-part structure that makes these actually read as
+   * composite (Asteraceae-family) blooms, not a generic ring of petals. */
+  | "disc-ray"
+  /** Many tiny 4-lobed florets packed into a dome (hydrangea). */
+  | "floret";
 
 /** Surface finish for the 3D material — the real per-species variation
  * that makes a tulip's petal read differently from a rose's under PBR
@@ -85,7 +103,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "purple", label: "Purple", hex: "#8C6FA8", symbolism: "Love at first sight, or something close to it." },
     ],
     habitat: { label: "An old walled garden at dusk", skyTop: "#6B4E8E", skyBottom: "#E8B4C8", ground: "#4A5D3A", fog: "#C78FA8" },
-    model: { petalShape: "ruffled", petalCount: 26, maxOpenDeg: 95, hasWiltedStage: true, finish: "velvety" },
+    model: { petalShape: "spiral", petalCount: 26, maxOpenDeg: 95, hasWiltedStage: true, finish: "velvety" },
   },
   {
     id: "tulip",
@@ -108,7 +126,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "purple", label: "Purple", hex: "#8067A3", symbolism: "Royalty — the feeling of being someone's favorite." },
     ],
     habitat: { label: "A windswept field at first light", skyTop: "#8FB8DE", skyBottom: "#FDF4D8", ground: "#6B8E4E", fog: "#E8D9A8" },
-    model: { petalShape: "round", petalCount: 6, maxOpenDeg: 55, hasWiltedStage: true, finish: "glossy" },
+    model: { petalShape: "cup", petalCount: 6, maxOpenDeg: 55, hasWiltedStage: true, finish: "glossy" },
   },
   {
     id: "lily",
@@ -171,7 +189,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "red", label: "Red", hex: "#B84A2E", symbolism: "A warmer, more private kind of adoration." },
     ],
     habitat: { label: "A sunny farm at midday", skyTop: "#6FA8DC", skyBottom: "#FDE49A", ground: "#C9A24D", fog: "#FFF3C4" },
-    model: { petalShape: "star", petalCount: 13, maxOpenDeg: 100, hasWiltedStage: true, finish: "matte" },
+    model: { petalShape: "disc-ray", petalCount: 13, maxOpenDeg: 100, hasWiltedStage: true, finish: "matte" },
   },
   {
     id: "cherry-blossom",
@@ -211,7 +229,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "white", label: "White", hex: "#F4F1EA", symbolism: "Boasting, in the gentlest possible way — pride, softened." },
     ],
     habitat: { label: "A misty hillside after rain", skyTop: "#8FA8B8", skyBottom: "#D8E0DC", ground: "#5A7A5A", fog: "#D0DCD8" },
-    model: { petalShape: "cluster", petalCount: 14, maxOpenDeg: 100, hasWiltedStage: true, finish: "translucent" },
+    model: { petalShape: "floret", petalCount: 14, maxOpenDeg: 100, hasWiltedStage: true, finish: "translucent" },
   },
   {
     id: "orchid",
@@ -274,7 +292,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "pink", label: "Pink", hex: "#E8AFC0", symbolism: "A quiet, uncomplicated fondness." },
     ],
     habitat: { label: "An open meadow in early summer", skyTop: "#7FB8E8", skyBottom: "#FFF8D8", ground: "#7FA84D", fog: "#F4FADC" },
-    model: { petalShape: "star", petalCount: 21, maxOpenDeg: 105, hasWiltedStage: true, finish: "matte" },
+    model: { petalShape: "disc-ray", petalCount: 21, maxOpenDeg: 105, hasWiltedStage: true, finish: "matte" },
   },
   {
     id: "carnation",
@@ -377,7 +395,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "red", label: "Red", hex: "#B8434A", symbolism: "Love returned, plainly and without games." },
     ],
     habitat: { label: "A quiet shrine garden in autumn", skyTop: "#C9A87A", skyBottom: "#F0D8A8", ground: "#8B6B4A", fog: "#ECD8B0" },
-    model: { petalShape: "star", petalCount: 24, maxOpenDeg: 100, hasWiltedStage: true, finish: "matte" },
+    model: { petalShape: "disc-ray", petalCount: 24, maxOpenDeg: 100, hasWiltedStage: true, finish: "matte" },
   },
   {
     id: "wisteria",
@@ -495,6 +513,10 @@ const PETAL_SHAPE_3D_TO_2D: Record<PetalShape3D, Flower["petalShape"]> = {
   trumpet: "bell",
   ruffled: "round",
   spike: "cluster",
+  spiral: "round",
+  cup: "round",
+  "disc-ray": "star",
+  floret: "cluster",
 };
 
 /** Adapts an EncyclopediaFlower (3D/detail-page data) into the legacy
