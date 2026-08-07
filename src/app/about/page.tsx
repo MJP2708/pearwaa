@@ -31,11 +31,17 @@ export default function AboutPage() {
           Not every feeling wants to be a sentence.
         </h1>
         <div className="mt-6 space-y-5 text-base leading-relaxed text-muted-foreground">
+          <p className="text-foreground">
+            Pearwaa is a calm space where flowers become a language for emotions that are difficult
+            to express with words. Whether you&rsquo;re discovering what you feel, creating a bouquet,
+            or sending a heartfelt letter, every interaction exists to help you say something
+            meaningful — gently, intentionally, and without pressure.
+          </p>
           <p>
-            Pearwaa is a small, quiet space for a specific kind of moment — the one where you feel
-            something clearly but the words won&rsquo;t come, or won&rsquo;t come out kindly. Flowers have
-            carried meaning like this for a very long time, long before anyone needed to explain
-            themselves in full sentences. We borrowed that.
+            Flowers have carried meaning like this for a very long time, long before anyone needed
+            to explain themselves in full sentences. We borrowed that. Pearwaa isn&rsquo;t a flower
+            encyclopedia, a bouquet builder, or a letter app — it&rsquo;s all three, in service of one
+            thing: helping you express, understand, or preserve a feeling.
           </p>
           <p>
             You pick a feeling, or you don&rsquo;t name it at all and just start choosing flowers that

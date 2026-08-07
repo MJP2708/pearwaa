@@ -3,11 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
-import { NAV_ITEMS } from "@/lib/nav";
+import { Menu, ChevronDown } from "lucide-react";
+import { NAV_GROUPS } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AccessibilityMenu } from "@/components/accessibility-menu";
 
 function PearwaaMark() {
@@ -50,23 +51,60 @@ export function SiteHeader() {
 
         <nav aria-label="Primary" className="hidden md:block">
           <ul className="flex items-center gap-1">
-            {NAV_ITEMS.map((item) => {
-              const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+            {NAV_GROUPS.map((group) => {
+              const active = group.items.some((item) => pathname.startsWith(item.href));
               return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "rounded-full px-4 py-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                      active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-                    )}
-                  >
-                    {item.label}
-                  </Link>
+                <li key={group.label}>
+                  <Popover>
+                    <PopoverTrigger
+                      render={
+                        <button
+                          type="button"
+                          className={cn(
+                            "flex items-center gap-1 rounded-full px-4 py-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                            active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                          )}
+                        />
+                      }
+                    >
+                      {group.label}
+                      <ChevronDown className="size-3.5 opacity-60" aria-hidden="true" />
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-56 !gap-1">
+                      <p className="px-2 pb-1 pt-0.5 text-xs text-muted-foreground">{group.description}</p>
+                      {group.items.map((item) => {
+                        const itemActive = pathname.startsWith(item.href);
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            aria-current={itemActive ? "page" : undefined}
+                            className={cn(
+                              "block rounded-md px-2 py-1.5 text-sm transition-colors",
+                              itemActive ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-secondary",
+                            )}
+                          >
+                            {item.label}
+                          </Link>
+                        );
+                      })}
+                    </PopoverContent>
+                  </Popover>
                 </li>
               );
             })}
+            <li>
+              <Link
+                href="/about"
+                aria-current={pathname === "/about" ? "page" : undefined}
+                className={cn(
+                  "rounded-full px-4 py-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  pathname === "/about" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                )}
+              >
+                About
+              </Link>
+            </li>
           </ul>
         </nav>
 
@@ -83,30 +121,65 @@ export function SiteHeader() {
                 <SheetTitle className="font-heading text-lg font-normal">Pearwaa</SheetTitle>
               </SheetHeader>
               <nav aria-label="Primary" className="px-2">
-                <ul className="flex flex-col gap-1">
-                  {NAV_ITEMS.map((item) => {
-                    const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-                    return (
-                      <li key={item.href}>
-                        <SheetClose
-                          nativeButton={false}
-                          render={
-                            <Link
-                              href={item.href}
-                              aria-current={active ? "page" : undefined}
-                              className={cn(
-                                "block rounded-xl px-4 py-3 text-base transition-colors",
-                                active ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-secondary",
-                              )}
-                            />
-                          }
-                        >
-                          {item.label}
-                        </SheetClose>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <SheetClose
+                  nativeButton={false}
+                  render={
+                    <Link
+                      href="/"
+                      aria-current={pathname === "/" ? "page" : undefined}
+                      className={cn(
+                        "block rounded-xl px-4 py-3 text-base transition-colors",
+                        pathname === "/" ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-secondary",
+                      )}
+                    />
+                  }
+                >
+                  Home
+                </SheetClose>
+                {NAV_GROUPS.map((group) => (
+                  <div key={group.label} className="mt-4">
+                    <p className="px-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">{group.label}</p>
+                    <ul className="mt-1 flex flex-col gap-1">
+                      {group.items.map((item) => {
+                        const active = pathname.startsWith(item.href);
+                        return (
+                          <li key={item.href}>
+                            <SheetClose
+                              nativeButton={false}
+                              render={
+                                <Link
+                                  href={item.href}
+                                  aria-current={active ? "page" : undefined}
+                                  className={cn(
+                                    "block rounded-xl px-4 py-3 text-base transition-colors",
+                                    active ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-secondary",
+                                  )}
+                                />
+                              }
+                            >
+                              {item.label}
+                            </SheetClose>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+                <SheetClose
+                  nativeButton={false}
+                  render={
+                    <Link
+                      href="/about"
+                      aria-current={pathname === "/about" ? "page" : undefined}
+                      className={cn(
+                        "mt-4 block rounded-xl px-4 py-3 text-base transition-colors",
+                        pathname === "/about" ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-secondary",
+                      )}
+                    />
+                  }
+                >
+                  About
+                </SheetClose>
               </nav>
             </SheetContent>
           </Sheet>

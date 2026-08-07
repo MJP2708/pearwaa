@@ -1,37 +1,45 @@
 "use client";
 
 import { useState } from "react";
+import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type QuestionOption = { text: string; emotionId: string };
-type Question = { prompt: string; options: QuestionOption[] };
+type Question = { prompt: string; placeholder: string; options: QuestionOption[] };
 
+// A short, supportive back-and-forth rather than a form — each step asks
+// one thing, in plain words, and free text is always an option alongside
+// the gentle chips. See DESIGN_PRINCIPLES.md.
 const QUESTIONS: Question[] = [
   {
-    prompt: "Where does this feeling sit in your body?",
+    prompt: "Who's on your mind today?",
+    placeholder: "Their name, or just who they are to you…",
     options: [
-      { text: "Heavy, low in my chest", emotionId: "grief" },
-      { text: "Buzzing, everywhere at once", emotionId: "overwhelm" },
-      { text: "Tight, right in my throat", emotionId: "courage" },
-      { text: "Light, like it might lift", emotionId: "hope" },
+      { text: "Someone I miss", emotionId: "grief" },
+      { text: "Someone I'm grateful for", emotionId: "hope" },
+      { text: "Someone I've let too much go unsaid with", emotionId: "courage" },
+      { text: "Myself, honestly", emotionId: "overwhelm" },
     ],
   },
   {
-    prompt: "If it were weather, what would it be?",
+    prompt: "What do you wish they knew?",
+    placeholder: "One thing, even a small one…",
     options: [
-      { text: "Fog that hasn't lifted", emotionId: "grief" },
-      { text: "A storm with nowhere to land", emotionId: "overwhelm" },
-      { text: "The stillness before saying something hard", emotionId: "courage" },
-      { text: "First sun after days of rain", emotionId: "hope" },
+      { text: "That I'm not okay right now", emotionId: "overwhelm" },
+      { text: "That I never stopped caring", emotionId: "grief" },
+      { text: "That I'm proud of them", emotionId: "hope" },
+      { text: "That this is hard for me to say", emotionId: "courage" },
     ],
   },
   {
-    prompt: "What does it want from you right now?",
+    prompt: "What's hardest to say?",
+    placeholder: "You don't have to get it exactly right…",
     options: [
-      { text: "To be sat with, not solved", emotionId: "grief" },
-      { text: "A little room to breathe", emotionId: "overwhelm" },
-      { text: "To be let out, even shakily", emotionId: "courage" },
-      { text: "To be let in, and shared", emotionId: "hope" },
+      { text: "I'm scared it's too late", emotionId: "grief" },
+      { text: "I need more from you", emotionId: "overwhelm" },
+      { text: "I love you", emotionId: "hope" },
+      { text: "I'm sorry", emotionId: "courage" },
     ],
   },
 ];
@@ -53,16 +61,26 @@ function pickWinner(answers: string[]): string {
 export function GuidedQuestions({ onDone }: { onDone: (emotionId: string) => void }) {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
+  const [freeText, setFreeText] = useState("");
 
-  function choose(emotionId: string) {
+  function advance(emotionId: string) {
     const next = [...answers];
     next[index] = emotionId;
+    setFreeText("");
     if (index === QUESTIONS.length - 1) {
       onDone(pickWinner(next));
       return;
     }
     setAnswers(next);
     setIndex(index + 1);
+  }
+
+  // Free text has no signal about which emotion it maps to, so it falls
+  // back to whatever the previous answers lean toward — or the gentlest
+  // default if this is the very first step.
+  function submitFreeText() {
+    const fallback = answers.length > 0 ? pickWinner(answers) : "hope";
+    advance(fallback);
   }
 
   const question = QUESTIONS[index];
@@ -82,12 +100,29 @@ export function GuidedQuestions({ onDone }: { onDone: (emotionId: string) => voi
       </p>
       <h1 className="mt-2 font-heading text-2xl font-normal text-foreground sm:text-3xl">{question.prompt}</h1>
 
-      <div className="mt-7 flex flex-col gap-2.5" role="group" aria-label={question.prompt}>
+      <div className="mt-6 flex gap-2">
+        <input
+          value={freeText}
+          onChange={(e) => setFreeText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && freeText.trim()) submitFreeText();
+          }}
+          placeholder={question.placeholder}
+          aria-label={question.prompt}
+          className="flex-1 rounded-full border border-border/70 bg-card px-5 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:border-primary"
+        />
+        <Button size="icon" className="shrink-0 rounded-full" onClick={submitFreeText} disabled={!freeText.trim()} aria-label="Continue with what you wrote">
+          <ArrowRight className="size-4" aria-hidden="true" />
+        </Button>
+      </div>
+
+      <p className="mt-5 text-xs text-muted-foreground">or, if one of these fits closer</p>
+      <div className="mt-2 flex flex-col gap-2.5" role="group" aria-label={question.prompt}>
         {question.options.map((opt) => (
           <button
             key={opt.text}
             type="button"
-            onClick={() => choose(opt.emotionId)}
+            onClick={() => advance(opt.emotionId)}
             className="rounded-2xl border border-border/70 bg-card px-5 py-3.5 text-left text-sm text-foreground transition-colors hover:border-primary/40 hover:bg-accent/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             {opt.text}

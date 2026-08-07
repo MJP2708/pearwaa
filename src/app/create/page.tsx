@@ -4,12 +4,13 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { EmotionPicker } from "@/components/create/emotion-picker";
 import { BouquetBuilder } from "@/components/create/bouquet-builder";
+import { BouquetReflection } from "@/components/create/bouquet-reflection";
 import { WallpaperStep } from "@/components/create/wallpaper-step";
 import type { Emotion } from "@/data/emotions";
 import type { FlowerPlacement } from "@/lib/export-image";
 import type { PresetId } from "@/lib/layout-presets";
 
-type Step = "feeling" | "bouquet" | "wallpaper";
+type Step = "feeling" | "bouquet" | "reflection" | "wallpaper";
 
 const stepTransition = {
   initial: { opacity: 0, y: 12 },
@@ -25,6 +26,7 @@ export default function CreatePage() {
   const [placements, setPlacements] = useState<FlowerPlacement[]>([]);
   const [preset, setPreset] = useState<PresetId>("freeform");
   const [presetLetter, setPresetLetter] = useState("A");
+  const [bouquetKey, setBouquetKey] = useState("");
 
   function reset() {
     setStep("feeling");
@@ -33,6 +35,7 @@ export default function CreatePage() {
     setPlacements([]);
     setPreset("freeform");
     setPresetLetter("A");
+    setBouquetKey("");
   }
 
   return (
@@ -64,6 +67,21 @@ export default function CreatePage() {
                 setPresetLetter(nextLetter);
               }}
               onBack={() => setStep("feeling")}
+              onContinue={() => {
+                setBouquetKey(`create:${Date.now()}`);
+                setStep("reflection");
+              }}
+            />
+          </motion.div>
+        )}
+
+        {step === "reflection" && emotion && (
+          <motion.div key="reflection" {...stepTransition}>
+            <BouquetReflection
+              emotion={emotion}
+              placements={placements}
+              bouquetKey={bouquetKey}
+              onBack={() => setStep("bouquet")}
               onContinue={() => setStep("wallpaper")}
             />
           </motion.div>

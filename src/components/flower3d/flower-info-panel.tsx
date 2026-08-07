@@ -52,6 +52,9 @@ export function FlowerInfoPanel({
         </Button>
       </div>
 
+      {/* People come for emotional meaning before biology — meaning first,
+          then the bloom story, then deeper symbolism, then science and
+          botany last. See DESIGN_PRINCIPLES.md. */}
       <div className="mt-5 rounded-2xl border border-border/70 bg-card p-4">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {selectedColor.label} {flower.commonName.toLowerCase()} means
@@ -59,14 +62,16 @@ export function FlowerInfoPanel({
         <p className="mt-1.5 font-heading text-lg leading-relaxed text-foreground">{selectedColor.symbolism}</p>
       </div>
 
-      <dl className="mt-5 grid grid-cols-2 gap-4 text-sm">
-        {rows.map((row) => (
-          <div key={row.label}>
-            <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{row.label}</dt>
-            <dd className="mt-0.5 text-foreground">{row.value}</dd>
-          </div>
-        ))}
-      </dl>
+      {flower.bloomStory.length > 0 && (
+        <div className="mt-5 space-y-2 rounded-2xl bg-secondary/50 p-5">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Bloom story</p>
+          {flower.bloomStory.map((line, i) => (
+            <p key={i} className="font-heading text-base leading-relaxed text-foreground/90">
+              {line}
+            </p>
+          ))}
+        </div>
+      )}
 
       <div className="mt-5 space-y-4 border-t border-border/70 pt-5 text-sm leading-relaxed">
         <div>
@@ -77,22 +82,21 @@ export function FlowerInfoPanel({
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Victorian meaning</p>
           <p className="mt-1 text-foreground">{flower.victorianMeaning}</p>
         </div>
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Worth knowing</p>
-          <p className="mt-1 text-foreground">{flower.funFact}</p>
-        </div>
       </div>
 
-      {flower.bloomStory.length > 0 && (
-        <div className="mt-6 space-y-2 rounded-2xl bg-secondary/50 p-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Bloom story</p>
-          {flower.bloomStory.map((line, i) => (
-            <p key={i} className="font-heading text-base leading-relaxed text-foreground/90">
-              {line}
-            </p>
-          ))}
-        </div>
-      )}
+      <div className="mt-5 border-t border-border/70 pt-5 text-sm leading-relaxed">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Worth knowing</p>
+        <p className="mt-1 text-foreground">{flower.funFact}</p>
+      </div>
+
+      <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-border/70 pt-5 text-sm">
+        {rows.map((row) => (
+          <div key={row.label}>
+            <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{row.label}</dt>
+            <dd className="mt-0.5 text-foreground">{row.value}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }

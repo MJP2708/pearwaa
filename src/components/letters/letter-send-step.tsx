@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Check, Copy, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PaperSurface } from "@/components/paper-surface";
 import { buildWallpaperSvgFromPlacements, type FlowerPlacement } from "@/lib/export-image";
 import { encodeFlowerLetter, buildLetterUrl, type FlowerLetterPayload } from "@/lib/flower-letter-codec";
 import { useSentLetters } from "@/lib/use-sent-letters";
@@ -19,13 +20,23 @@ type Props = {
   onRestart: () => void;
 };
 
-type Phase = "ready" | "sealing" | "sent";
+// The nine quiet beats of sealing a letter — fold, settle, press, close,
+// wax appears, wax stamped, rest, silence, then the confirmation
+// sentence. Nothing here is instant; each stage gets its own moment.
+type Phase = "ready" | "folding" | "pressed" | "closed" | "waxed" | "stamped" | "resting" | "sent";
 
-/**
- * The ceremonial send moment: the letter folds closed and takes a wax
- * seal before the shareable link appears — a beat of "this is being sent"
- * rather than the link just materializing under a button.
- */
+const STAGE_MS = {
+  folding: 650,
+  pressed: 350,
+  closed: 450,
+  waxed: 350,
+  stamped: 400,
+  resting: 500,
+  silence: 550,
+} as const;
+
+const REDUCED_STAGE_MS = 260;
+
 export function LetterSendStep({ emotion, message, senderName, placements, onBack, onRestart }: Props) {
   const { reducedMotion } = useAccessibility();
   const [phase, setPhase] = useState<Phase>("ready");
@@ -65,17 +76,23 @@ export function LetterSendStep({ emotion, message, senderName, placements, onBac
       createdAt: Date.now(),
     });
 
-    if (reducedMotion) {
-      setLinkUrl(url);
-      setPhase("sent");
-      return;
-    }
+    const durations = reducedMotion
+      ? { folding: REDUCED_STAGE_MS, pressed: REDUCED_STAGE_MS, closed: REDUCED_STAGE_MS, waxed: REDUCED_STAGE_MS, stamped: REDUCED_STAGE_MS, resting: REDUCED_STAGE_MS, silence: REDUCED_STAGE_MS }
+      : STAGE_MS;
 
-    setPhase("sealing");
+    const order: Exclude<Phase, "ready" | "sent">[] = ["folding", "pressed", "closed", "waxed", "stamped", "resting"];
+    let elapsed = 0;
+    for (const p of order) {
+      elapsed += durations[p];
+      setTimeout(() => setPhase(p), elapsed);
+    }
+    elapsed += durations.silence;
     setTimeout(() => {
       setLinkUrl(url);
       setPhase("sent");
-    }, 1100);
+    }, elapsed);
+
+    setPhase("folding");
   }
 
   async function handleCopyLink(url: string) {
@@ -88,53 +105,119 @@ export function LetterSendStep({ emotion, message, senderName, placements, onBac
     }
   }
 
+  const sealing = phase !== "ready" && phase !== "sent";
+  const heading =
+    phase === "sent" ? "Your flowers are on their way." : sealing ? "" : "Ready when you are";
+
   return (
     <div className="mx-auto max-w-xl">
       <p className="text-sm font-medium text-primary">Send your letter</p>
-      <h1 className="mt-2 font-heading text-3xl font-normal text-foreground sm:text-4xl">
-        {phase === "sent" ? "Sealed and ready" : "Ready when you are"}
+      <h1 className="mt-2 min-h-[1.2em] font-heading text-3xl font-normal text-foreground sm:text-4xl">
+        {heading}
       </h1>
-      <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+      <p className="mt-3 min-h-[1.5em] text-base leading-relaxed text-muted-foreground">
         {phase === "sent"
           ? "A link now opens straight to your bouquet and letter — no account needed on either end."
-          : "Nothing sends until you choose to. Once it's sealed, anyone with the link can open it."}
+          : sealing
+            ? ""
+            : "Nothing sends until you choose to. Once it's sealed, anyone with the link can open it."}
       </p>
 
-      <div className="relative mt-8 flex min-h-[280px] items-center justify-center">
+      <div className="relative mt-8 flex min-h-[300px] items-center justify-center">
         <AnimatePresence mode="wait">
-          {phase !== "sent" ? (
-            <motion.div
-              key="paper"
-              className="w-full max-w-[300px] overflow-hidden rounded-sm bg-[#FBF6EC] p-5 shadow-md ring-1 ring-black/5 dark:bg-[#2A2520] dark:ring-white/10"
-              style={{ transformOrigin: "top center" }}
-              animate={
-                phase === "sealing" && !reducedMotion
-                  ? { scaleY: [1, 1, 0.06], rotateX: [0, 0, 55], opacity: [1, 1, 0.9] }
-                  : { scaleY: 1, rotateX: 0, opacity: 1 }
-              }
-              transition={{ duration: 0.9, times: [0, 0.35, 1], ease: [0.65, 0, 0.35, 1] }}
-              exit={{ opacity: 0 }}
-            >
-              <div className="overflow-hidden rounded-sm [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: bouquetSvg }} />
-              <p className="mt-2 line-clamp-3 text-center font-heading text-sm italic text-foreground/80">{message}</p>
-              <p className="mt-1 text-center text-xs text-muted-foreground">— {senderName.trim() || "a friend"}</p>
+          {phase === "ready" && (
+            <motion.div key="paper" exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+              <PaperSurface className="w-[280px] p-5" style={{ transformOrigin: "top center" }}>
+                <div className="overflow-hidden rounded-sm [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: bouquetSvg }} />
+                <p className="mt-2 line-clamp-3 text-center font-heading text-sm italic text-foreground/80">{message}</p>
+                <p className="mt-1 text-center text-xs text-muted-foreground">— {senderName.trim() || "a friend"}</p>
+              </PaperSurface>
             </motion.div>
-          ) : (
+          )}
+
+          {sealing && (
+            <motion.div
+              key="sealing"
+              className="relative flex h-[220px] w-[280px] items-center justify-center"
+              initial={{ opacity: reducedMotion ? 1 : 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.25 }}
+            >
+              {/* Stage 1–2: the paper folds and the bouquet settles inside it. */}
+              <motion.div
+                className="absolute w-[220px] overflow-hidden rounded-sm bg-[#FBF6EC] p-4 shadow-md ring-1 ring-black/5 dark:bg-[#2A2520] dark:ring-white/10"
+                style={{ transformOrigin: "top center" }}
+                animate={
+                  reducedMotion
+                    ? { opacity: phase === "folding" || phase === "pressed" ? 1 : 0 }
+                    : {
+                        scaleY: phase === "folding" ? 0.18 : 1,
+                        opacity: phase === "folding" || phase === "pressed" ? 1 : 0,
+                      }
+                }
+                transition={{ duration: reducedMotion ? 0.2 : 0.6, ease: [0.65, 0, 0.35, 1] }}
+              >
+                <motion.div
+                  className="overflow-hidden rounded-sm [&>svg]:h-full [&>svg]:w-full"
+                  animate={reducedMotion ? {} : { scale: phase === "pressed" ? 0.86 : 1 }}
+                  transition={{ duration: 0.35, ease: "easeOut" }}
+                  dangerouslySetInnerHTML={{ __html: bouquetSvg }}
+                />
+              </motion.div>
+
+              {/* Stage 4: the envelope closes around the folded, pressed letter. */}
+              <motion.div
+                className="absolute h-[130px] w-[190px] overflow-hidden rounded-md shadow-lg"
+                style={{ backgroundColor: emotion.colorHex, opacity: 0.16 }}
+                initial={{ scaleX: reducedMotion ? 1 : 0, opacity: 0 }}
+                animate={{
+                  scaleX: 1,
+                  opacity: phase === "closed" || phase === "waxed" || phase === "stamped" || phase === "resting" ? 1 : 0,
+                  y: phase === "resting" ? 4 : 0,
+                }}
+                transition={{ duration: reducedMotion ? 0.2 : 0.5, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div
+                  className="absolute inset-0 bg-gradient-to-b from-black/5 to-black/10 dark:from-white/5 dark:to-white/10"
+                  style={{ clipPath: "polygon(0 0, 100% 0, 50% 55%)" }}
+                  aria-hidden="true"
+                />
+              </motion.div>
+
+              {/* Stage 5–6: purple wax appears and is stamped — the one
+                  deliberately purple moment in this whole animation. */}
+              <motion.div
+                className="absolute flex size-11 items-center justify-center rounded-full shadow-md"
+                style={{ backgroundColor: "var(--primary)" }}
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{
+                  scale: phase === "waxed" ? 0.7 : phase === "stamped" || phase === "resting" ? 1 : 0,
+                  opacity: phase === "waxed" || phase === "stamped" || phase === "resting" ? 1 : 0,
+                }}
+                transition={{ duration: reducedMotion ? 0.15 : 0.45, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <span className="font-heading text-lg text-primary-foreground" aria-hidden="true">
+                  ✦
+                </span>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {phase === "sent" && (
             <motion.div
               key="sealed"
-              className="flex flex-col items-center gap-2"
-              initial={reducedMotion ? { opacity: 1 } : { opacity: 0, scale: 0.7 }}
+              className="flex flex-col items-center gap-3"
+              initial={reducedMotion ? { opacity: 1 } : { opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
             >
               <div
-                className="flex size-16 items-center justify-center rounded-full text-primary-foreground shadow-sm"
-                style={{ backgroundColor: emotion.colorHex }}
+                className="flex size-14 items-center justify-center rounded-full text-primary-foreground shadow-sm"
+                style={{ backgroundColor: "var(--primary)" }}
                 aria-hidden="true"
               >
-                <span className="font-heading text-2xl">P</span>
+                <span className="font-heading text-xl">✦</span>
               </div>
-              <p className="text-xs text-muted-foreground">Sealed with a flower</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -149,7 +232,7 @@ export function LetterSendStep({ emotion, message, senderName, placements, onBac
       <div className="mt-6 flex flex-col items-center gap-3">
         {phase === "ready" && (
           <Button size="lg" className="rounded-full px-7" onClick={handleSeal}>
-            Seal and send
+            Seal Letter
           </Button>
         )}
 

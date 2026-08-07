@@ -4,6 +4,7 @@ import { useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointer
 import { flowers as allFlowers } from "@/data/flowers";
 import { FlowerGlyphIcon } from "@/components/flower-glyph-icon";
 import { lightenHex } from "@/lib/color";
+import { PaperSurface } from "@/components/paper-surface";
 import type { FlowerPlacement } from "@/lib/export-image";
 import { useAccessibility } from "@/components/providers/accessibility-provider";
 import { cn } from "@/lib/utils";
@@ -118,15 +119,12 @@ export function FlowerLayoutCanvas({
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="relative w-full touch-none overflow-hidden rounded-3xl border border-border/70"
-      style={{
-        aspectRatio,
-        containerType: "inline-size",
-        background: `radial-gradient(circle at 50% 36%, ${lightenHex(accentHex, 0.82)}, ${lightenHex(accentHex, 0.94)})`,
-      }}
+    <PaperSurface
+      tint={accentHex}
+      className="w-full touch-none rounded-3xl"
+      style={{ aspectRatio, containerType: "inline-size" }}
     >
+        <div ref={containerRef} className="relative h-full w-full">
       {backgroundGlyph && (
         <span
           aria-hidden="true"
@@ -182,8 +180,10 @@ export function FlowerLayoutCanvas({
               left: `${placement.x}%`,
               top: `${placement.y}%`,
               transform: `translate(-50%, -50%) scale(${placement.scale * (lift ? 1.1 : 1)}) translateY(${lift ? -3 : 0}px)`,
-              boxShadow: lift ? "0 14px 26px -8px rgba(43, 26, 71, 0.4)" : "0 0 0 0 rgba(0,0,0,0)",
-              transition: isDragging || reducedMotion ? "none" : "transform 0.28s cubic-bezier(0.22,1,0.36,1), box-shadow 0.28s ease",
+              boxShadow: lift
+                ? "0 16px 28px -10px rgba(43, 26, 71, 0.38), 0 3px 5px -2px rgba(60,40,20,0.16)"
+                : "0 3px 6px -2px rgba(60,40,20,0.16)",
+              transition: isDragging || reducedMotion ? "none" : "transform 0.32s cubic-bezier(0.25,0.9,0.4,1), box-shadow 0.32s ease",
             }}
           >
             <FlowerGlyphIcon flower={flower} size={72} />
@@ -199,6 +199,7 @@ export function FlowerLayoutCanvas({
           {label}
         </p>
       )}
-    </div>
+        </div>
+      </PaperSurface>
   );
 }

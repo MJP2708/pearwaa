@@ -90,8 +90,8 @@ export function LetterClient() {
                 </span>
               </span>
             </button>
-            <p className="mt-6 font-heading text-lg text-foreground/85">A flower letter has arrived</p>
-            <p className="mt-1 text-sm text-muted-foreground">Tap the envelope to open it.</p>
+            <p className="mt-6 font-heading text-lg text-foreground/85">Open when you&rsquo;re ready.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Someone made this for you.</p>
           </motion.div>
         ) : (
           <motion.div key="contents" className="w-full max-w-md">

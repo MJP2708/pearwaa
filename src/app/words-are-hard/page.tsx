@@ -9,6 +9,7 @@ import { MessageStep } from "@/components/words/message-step";
 import { ShareCardStep } from "@/components/words/share-card-step";
 import { EmotionPicker } from "@/components/create/emotion-picker";
 import { BouquetBuilder } from "@/components/create/bouquet-builder";
+import { BouquetReflection } from "@/components/create/bouquet-reflection";
 import { getEmotion, type Emotion } from "@/data/emotions";
 import { getFlowersByEmotion } from "@/data/flowers";
 import { computePlacementPoint } from "@/lib/bouquet-layout";
@@ -23,7 +24,7 @@ function createInitialPlacements(flowerIds: string[]): FlowerPlacement[] {
   });
 }
 
-type Step = "intro" | "questions" | "reveal" | "manual" | "bouquet" | "message" | "card";
+type Step = "intro" | "questions" | "reveal" | "manual" | "bouquet" | "reflection" | "message" | "card";
 
 const stepTransition = {
   initial: { opacity: 0, y: 12 },
@@ -41,6 +42,7 @@ export default function WordsAreHardPage() {
   const [senderName, setSenderName] = useState("");
   const [preset, setPreset] = useState<PresetId>("freeform");
   const [presetLetter, setPresetLetter] = useState("A");
+  const [bouquetKey, setBouquetKey] = useState("");
 
   const step = history[history.length - 1];
 
@@ -61,6 +63,7 @@ export default function WordsAreHardPage() {
     setSenderName("");
     setPreset("freeform");
     setPresetLetter("A");
+    setBouquetKey("");
   }
 
   function applyEmotion(next: Emotion, nextLabel: string) {
@@ -124,7 +127,27 @@ export default function WordsAreHardPage() {
                 setPresetLetter(nextLetter);
               }}
               onBack={back}
-              onContinue={() => push("message")}
+              onContinue={() => {
+                setBouquetKey(`words:${Date.now()}`);
+                push("reflection");
+              }}
+            />
+          </motion.div>
+        )}
+
+        {step === "reflection" && emotion && (
+          <motion.div key="reflection" {...stepTransition}>
+            <BouquetReflection
+              stepLabel="Step 4 of 6 — optional"
+              emotion={emotion}
+              placements={placements}
+              bouquetKey={bouquetKey}
+              showIncludeOption
+              onBack={back}
+              onContinue={({ note, includeInLetter }) => {
+                if (includeInLetter && note.trim()) setMessage(note.trim());
+                push("message");
+              }}
             />
           </motion.div>
         )}

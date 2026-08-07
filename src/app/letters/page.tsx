@@ -4,13 +4,14 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { EmotionPicker } from "@/components/create/emotion-picker";
 import { BouquetBuilder } from "@/components/create/bouquet-builder";
+import { BouquetReflection } from "@/components/create/bouquet-reflection";
 import { LetterComposer } from "@/components/letters/letter-composer";
 import { LetterSendStep } from "@/components/letters/letter-send-step";
 import type { Emotion } from "@/data/emotions";
 import type { FlowerPlacement } from "@/lib/export-image";
 import type { PresetId } from "@/lib/layout-presets";
 
-type Step = "feeling" | "bouquet" | "write" | "send";
+type Step = "feeling" | "bouquet" | "reflection" | "write" | "send";
 
 const stepTransition = {
   initial: { opacity: 0, y: 12 },
@@ -28,6 +29,7 @@ export default function LettersPage() {
   const [presetLetter, setPresetLetter] = useState("A");
   const [message, setMessage] = useState("");
   const [senderName, setSenderName] = useState("");
+  const [bouquetKey, setBouquetKey] = useState("");
 
   function reset() {
     setStep("feeling");
@@ -38,6 +40,7 @@ export default function LettersPage() {
     setPresetLetter("A");
     setMessage("");
     setSenderName("");
+    setBouquetKey("");
   }
 
   return (
@@ -71,19 +74,41 @@ export default function LettersPage() {
                 setPresetLetter(nextLetter);
               }}
               onBack={() => setStep("feeling")}
-              onContinue={() => setStep("write")}
+              onContinue={() => {
+                setBouquetKey(`letter:${Date.now()}`);
+                setStep("reflection");
+              }}
             />
           </motion.div>
         )}
 
-        {step === "write" && (
+        {step === "reflection" && emotion && (
+          <motion.div key="reflection" {...stepTransition}>
+            <BouquetReflection
+              stepLabel="Step 3 of 5 — optional"
+              emotion={emotion}
+              placements={placements}
+              bouquetKey={bouquetKey}
+              showIncludeOption
+              onBack={() => setStep("bouquet")}
+              onContinue={({ note, includeInLetter }) => {
+                if (includeInLetter && note.trim()) setMessage(note.trim());
+                setStep("write");
+              }}
+            />
+          </motion.div>
+        )}
+
+        {step === "write" && emotion && (
           <motion.div key="write" {...stepTransition}>
             <LetterComposer
+              emotion={emotion}
+              placements={placements}
               message={message}
               onChangeMessage={setMessage}
               senderName={senderName}
               onChangeSenderName={setSenderName}
-              onBack={() => setStep("bouquet")}
+              onBack={() => setStep("reflection")}
               onContinue={() => setStep("send")}
             />
           </motion.div>
