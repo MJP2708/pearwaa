@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { Suspense, useRef, useState, type ReactNode } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { OrbitControls, Environment } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { EncyclopediaFlower } from "@/data/flower-encyclopedia";
@@ -86,14 +86,16 @@ export function Flower3DViewer({ flower, colorHex, bloomStage, autoSpin, showPar
         onCreated={() => setReady(true)}
         style={{ opacity: ready ? 1 : 0, transition: reducedMotion ? "none" : "opacity 0.6s ease" }}
       >
-        {/* Warm, soft lighting rather than clinical/showroom. No HDRI
-            environment map here on purpose — reflections from one are what
-            made the toon-shaded petals read as glossy/plasticky instead of
-            hand-painted. A hemisphere light stands in for that fill instead,
-            since it gives soft top/ground bounce without any specular glint. */}
-        <ambientLight intensity={0.5} color="#FFE9CC" />
-        <hemisphereLight color="#FFF6E8" groundColor="#E6D2B8" intensity={0.4} />
-        <directionalLight position={[2, 3, 2]} intensity={0.6} color="#FFD9A0" castShadow />
+        {/* Realistic PBR materials (clearcoat, sheen, transmission) need a
+            real environment to reflect/refract — without one they read as
+            flat regardless of roughness values. A soft, warm HDRI stands in
+            for daylight; the actual scene background stays the habitat
+            backdrop below (environment affects lighting/reflections only). */}
+        <ambientLight intensity={0.35} color="#FFE9CC" />
+        <directionalLight position={[2, 3, 2]} intensity={0.55} color="#FFD9A0" castShadow />
+        <Suspense fallback={null}>
+          <Environment preset="park" environmentIntensity={0.65} background={false} />
+        </Suspense>
 
         <HabitatBackdrop habitat={flower.habitat} />
 

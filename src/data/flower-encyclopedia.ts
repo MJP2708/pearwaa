@@ -3,6 +3,11 @@ import { flowers as bouquetFlowers, type Flower } from "./flowers";
 
 export type PetalShape3D = "round" | "pointed" | "star" | "cluster" | "ruffled" | "trumpet" | "spike";
 
+/** Surface finish for the 3D material — the real per-species variation
+ * that makes a tulip's petal read differently from a rose's under PBR
+ * lighting. Mapped to physical material params in procedural-flower.tsx. */
+export type PetalFinish3D = "matte" | "glossy" | "velvety" | "translucent";
+
 export type ColorVariant = {
   id: string;
   label: string;
@@ -39,6 +44,8 @@ export type EncyclopediaFlower = {
      * as a cupped flower (tulip), higher as flat-open (daisy). */
     maxOpenDeg: number;
     hasWiltedStage: boolean;
+    /** Defaults to "matte" when omitted. */
+    finish?: PetalFinish3D;
   };
 };
 
@@ -78,7 +85,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "purple", label: "Purple", hex: "#8C6FA8", symbolism: "Love at first sight, or something close to it." },
     ],
     habitat: { label: "An old walled garden at dusk", skyTop: "#6B4E8E", skyBottom: "#E8B4C8", ground: "#4A5D3A", fog: "#C78FA8" },
-    model: { petalShape: "ruffled", petalCount: 26, maxOpenDeg: 95, hasWiltedStage: true },
+    model: { petalShape: "ruffled", petalCount: 26, maxOpenDeg: 95, hasWiltedStage: true, finish: "velvety" },
   },
   {
     id: "tulip",
@@ -101,7 +108,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "purple", label: "Purple", hex: "#8067A3", symbolism: "Royalty — the feeling of being someone's favorite." },
     ],
     habitat: { label: "A windswept field at first light", skyTop: "#8FB8DE", skyBottom: "#FDF4D8", ground: "#6B8E4E", fog: "#E8D9A8" },
-    model: { petalShape: "round", petalCount: 6, maxOpenDeg: 55, hasWiltedStage: true },
+    model: { petalShape: "round", petalCount: 6, maxOpenDeg: 55, hasWiltedStage: true, finish: "glossy" },
   },
   {
     id: "lily",
@@ -124,7 +131,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "orange", label: "Orange", hex: "#E38A3C", symbolism: "Confidence, and pride well-earned." },
     ],
     habitat: { label: "A still garden pond at first light", skyTop: "#A8C4D9", skyBottom: "#F0E8D0", ground: "#3A5A4A", fog: "#D9E8DC" },
-    model: { petalShape: "trumpet", petalCount: 6, maxOpenDeg: 110, hasWiltedStage: true },
+    model: { petalShape: "trumpet", petalCount: 6, maxOpenDeg: 110, hasWiltedStage: true, finish: "glossy" },
   },
   {
     id: "lavender",
@@ -146,7 +153,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
     // dome — real lavender is a narrow spike of many tiny tight buds.
     // "spike" is a dedicated layout (see ProceduralFlower's isSpike
     // branch), not a bigger petalCount on the usual shapes.
-    model: { petalShape: "spike", petalCount: 26, maxOpenDeg: 90, hasWiltedStage: true },
+    model: { petalShape: "spike", petalCount: 26, maxOpenDeg: 90, hasWiltedStage: true, finish: "matte" },
   },
   {
     id: "sunflower",
@@ -164,7 +171,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "red", label: "Red", hex: "#B84A2E", symbolism: "A warmer, more private kind of adoration." },
     ],
     habitat: { label: "A sunny farm at midday", skyTop: "#6FA8DC", skyBottom: "#FDE49A", ground: "#C9A24D", fog: "#FFF3C4" },
-    model: { petalShape: "star", petalCount: 13, maxOpenDeg: 100, hasWiltedStage: true },
+    model: { petalShape: "star", petalCount: 13, maxOpenDeg: 100, hasWiltedStage: true, finish: "matte" },
   },
   {
     id: "cherry-blossom",
@@ -182,7 +189,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "white", label: "White", hex: "#F8F1EC", symbolism: "A pure, uncomplicated new beginning." },
     ],
     habitat: { label: "A quiet park in Japan, mid-spring", skyTop: "#C9DCE8", skyBottom: "#FBDEE8", ground: "#7A9B6E", fog: "#FCE8EE" },
-    model: { petalShape: "round", petalCount: 5, maxOpenDeg: 120, hasWiltedStage: true },
+    model: { petalShape: "round", petalCount: 5, maxOpenDeg: 120, hasWiltedStage: true, finish: "translucent" },
   },
   {
     id: "hydrangea",
@@ -204,7 +211,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "white", label: "White", hex: "#F4F1EA", symbolism: "Boasting, in the gentlest possible way — pride, softened." },
     ],
     habitat: { label: "A misty hillside after rain", skyTop: "#8FA8B8", skyBottom: "#D8E0DC", ground: "#5A7A5A", fog: "#D0DCD8" },
-    model: { petalShape: "cluster", petalCount: 14, maxOpenDeg: 100, hasWiltedStage: true },
+    model: { petalShape: "cluster", petalCount: 14, maxOpenDeg: 100, hasWiltedStage: true, finish: "translucent" },
   },
   {
     id: "orchid",
@@ -226,7 +233,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "pink", label: "Pink", hex: "#E39CB8", symbolism: "Pure affection, gently stated." },
     ],
     habitat: { label: "A warm greenhouse, humid and still", skyTop: "#4A6B5A", skyBottom: "#8FA88F", ground: "#3A4A3A", fog: "#B8D0B0" },
-    model: { petalShape: "ruffled", petalCount: 5, maxOpenDeg: 100, hasWiltedStage: true },
+    model: { petalShape: "ruffled", petalCount: 5, maxOpenDeg: 100, hasWiltedStage: true, finish: "glossy" },
   },
   {
     id: "peony",
@@ -245,7 +252,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "red", label: "Red", hex: "#B84052", symbolism: "Honor, and deep-rooted respect." },
     ],
     habitat: { label: "A palace garden in late spring", skyTop: "#E8C4D9", skyBottom: "#FDF0E0", ground: "#6B8E5A", fog: "#F0D8E4" },
-    model: { petalShape: "round", petalCount: 22, maxOpenDeg: 100, hasWiltedStage: true },
+    model: { petalShape: "round", petalCount: 22, maxOpenDeg: 100, hasWiltedStage: true, finish: "velvety" },
   },
   {
     id: "daisy",
@@ -267,7 +274,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "pink", label: "Pink", hex: "#E8AFC0", symbolism: "A quiet, uncomplicated fondness." },
     ],
     habitat: { label: "An open meadow in early summer", skyTop: "#7FB8E8", skyBottom: "#FFF8D8", ground: "#7FA84D", fog: "#F4FADC" },
-    model: { petalShape: "star", petalCount: 21, maxOpenDeg: 105, hasWiltedStage: true },
+    model: { petalShape: "star", petalCount: 21, maxOpenDeg: 105, hasWiltedStage: true, finish: "matte" },
   },
   {
     id: "carnation",
@@ -290,7 +297,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "yellow", label: "Yellow", hex: "#EEC23C", symbolism: "Disappointment — the one carnation to think twice about." },
     ],
     habitat: { label: "A quiet greenhouse windowsill", skyTop: "#D9C4E8", skyBottom: "#F8ECD9", ground: "#8B9B7A", fog: "#EDE0F0" },
-    model: { petalShape: "ruffled", petalCount: 20, maxOpenDeg: 90, hasWiltedStage: true },
+    model: { petalShape: "ruffled", petalCount: 20, maxOpenDeg: 90, hasWiltedStage: true, finish: "velvety" },
   },
   {
     id: "iris",
@@ -310,7 +317,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "white", label: "White", hex: "#F0EEE6", symbolism: "Purity, and a message meant kindly." },
     ],
     habitat: { label: "The edge of a slow river", skyTop: "#5A7B9B", skyBottom: "#B8D0D8", ground: "#4A6B4A", fog: "#C8DCD8" },
-    model: { petalShape: "trumpet", petalCount: 6, maxOpenDeg: 85, hasWiltedStage: true },
+    model: { petalShape: "trumpet", petalCount: 6, maxOpenDeg: 85, hasWiltedStage: true, finish: "glossy" },
   },
   {
     id: "camellia",
@@ -329,7 +336,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "pink", label: "Pink", hex: "#E3A0B0", symbolism: "Longing that's a little softer around the edges." },
     ],
     habitat: { label: "A stone courtyard in early winter", skyTop: "#A8B4C4", skyBottom: "#E0DCD0", ground: "#5A6B5A", fog: "#D8D8D0" },
-    model: { petalShape: "round", petalCount: 9, maxOpenDeg: 105, hasWiltedStage: true },
+    model: { petalShape: "round", petalCount: 9, maxOpenDeg: 105, hasWiltedStage: true, finish: "glossy" },
   },
   {
     id: "lotus",
@@ -351,7 +358,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "blue", label: "Blue", hex: "#7B9BC4", symbolism: "Wisdom earned rather than given." },
     ],
     habitat: { label: "A still pond at sunrise", skyTop: "#E8A8B4", skyBottom: "#FDE8C4", ground: "#4A6B5A", fog: "#D8E8D0" },
-    model: { petalShape: "round", petalCount: 15, maxOpenDeg: 115, hasWiltedStage: true },
+    model: { petalShape: "round", petalCount: 15, maxOpenDeg: 115, hasWiltedStage: true, finish: "translucent" },
   },
   {
     id: "chrysanthemum",
@@ -370,7 +377,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "red", label: "Red", hex: "#B8434A", symbolism: "Love returned, plainly and without games." },
     ],
     habitat: { label: "A quiet shrine garden in autumn", skyTop: "#C9A87A", skyBottom: "#F0D8A8", ground: "#8B6B4A", fog: "#ECD8B0" },
-    model: { petalShape: "star", petalCount: 24, maxOpenDeg: 100, hasWiltedStage: true },
+    model: { petalShape: "star", petalCount: 24, maxOpenDeg: 100, hasWiltedStage: true, finish: "matte" },
   },
   {
     id: "wisteria",
@@ -388,7 +395,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "white", label: "White", hex: "#F2EFE6", symbolism: "Youth, and a gentleness toward new beginnings." },
     ],
     habitat: { label: "A wooden trellis walk in late spring", skyTop: "#A8B8D9", skyBottom: "#E8DCF0", ground: "#6B7A5A", fog: "#DCE0EC" },
-    model: { petalShape: "cluster", petalCount: 7, maxOpenDeg: 90, hasWiltedStage: true },
+    model: { petalShape: "cluster", petalCount: 7, maxOpenDeg: 90, hasWiltedStage: true, finish: "translucent" },
   },
   {
     id: "violet",
@@ -410,7 +417,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "blue", label: "Blue", hex: "#5B76B0", symbolism: "Watchfulness — someone thinking of you from afar." },
     ],
     habitat: { label: "A shaded forest floor", skyTop: "#5A6B7A", skyBottom: "#8FA090", ground: "#3A4A3A", fog: "#B0C0B0" },
-    model: { petalShape: "round", petalCount: 5, maxOpenDeg: 100, hasWiltedStage: true },
+    model: { petalShape: "round", petalCount: 5, maxOpenDeg: 100, hasWiltedStage: true, finish: "velvety" },
   },
   {
     id: "jasmine",
@@ -431,7 +438,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "yellow", label: "Yellow", hex: "#EAC966", symbolism: "Grace, given freely." },
     ],
     habitat: { label: "A courtyard at night, warm air", skyTop: "#2A2438", skyBottom: "#4A3B5E", ground: "#2A3A2A", fog: "#6B5A88" },
-    model: { petalShape: "star", petalCount: 6, maxOpenDeg: 100, hasWiltedStage: true },
+    model: { petalShape: "star", petalCount: 6, maxOpenDeg: 100, hasWiltedStage: true, finish: "translucent" },
   },
   {
     id: "hibiscus",
@@ -453,7 +460,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "pink", label: "Pink", hex: "#E5A0B8", symbolism: "A gentler, quieter kind of beauty." },
     ],
     habitat: { label: "A tropical garden at high noon", skyTop: "#4DA8D9", skyBottom: "#FDE49A", ground: "#3A7A4A", fog: "#D8F0DC" },
-    model: { petalShape: "trumpet", petalCount: 5, maxOpenDeg: 118, hasWiltedStage: true },
+    model: { petalShape: "trumpet", petalCount: 5, maxOpenDeg: 118, hasWiltedStage: true, finish: "translucent" },
   },
   {
     id: "forget-me-not",
@@ -472,7 +479,7 @@ export const ENCYCLOPEDIA_FLOWERS: EncyclopediaFlower[] = [
       { id: "white", label: "White", hex: "#F2F0E6", symbolism: "A memory held with total tenderness." },
     ],
     habitat: { label: "A stream bank in early spring", skyTop: "#9BC4E0", skyBottom: "#F0F4E0", ground: "#6B8E5A", fog: "#DCE8DC" },
-    model: { petalShape: "round", petalCount: 5, maxOpenDeg: 110, hasWiltedStage: true },
+    model: { petalShape: "round", petalCount: 5, maxOpenDeg: 110, hasWiltedStage: true, finish: "matte" },
   },
 ];
 

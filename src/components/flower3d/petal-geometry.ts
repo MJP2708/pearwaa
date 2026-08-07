@@ -78,22 +78,51 @@ function petalOutline(shape: PetalShape3D, length: number, width: number): THREE
 
 const geometryCache = new Map<string, THREE.BufferGeometry>();
 
+/** Bends the petal tip forward along Z, increasingly toward the tip — real
+ * petals aren't flat extrusions, they curl/cup. Displacement scales with
+ * the petal's own length so it reads proportionate at every size, from a
+ * lavender bud to a lotus petal. */
+function applyCurl(geometry: THREE.BufferGeometry, length: number, curlAmount: number) {
+  if (curlAmount <= 0 || length <= 0) return;
+  const position = geometry.attributes.position;
+  for (let i = 0; i < position.count; i++) {
+    const y = position.getY(i);
+    const t = THREE.MathUtils.clamp(y / length, 0, 1);
+    const curl = Math.sin(t * Math.PI * 0.5) ** 1.4 * length * curlAmount;
+    position.setZ(i, position.getZ(i) + curl);
+  }
+  position.needsUpdate = true;
+}
+
+/** Curl strength per shape — trumpet/round petals cup noticeably, small
+ * tight shapes (spike buds, cluster petals) barely need it. */
+const CURL_BY_SHAPE: Record<PetalShape3D, number> = {
+  round: 0.16,
+  pointed: 0.12,
+  star: 0.05,
+  cluster: 0.03,
+  spike: 0.02,
+  ruffled: 0.1,
+  trumpet: 0.22,
+};
+
 export function getPetalGeometry(shape: PetalShape3D, length: number, width: number): THREE.BufferGeometry {
   const key = `${shape}-${length.toFixed(2)}-${width.toFixed(2)}`;
   const cached = geometryCache.get(key);
   if (cached) return cached;
 
-  const depth = Math.max(0.015, length * 0.02);
+  const depth = Math.max(0.012, length * 0.016);
   const outline = petalOutline(shape, length, width);
   const geometry = new THREE.ExtrudeGeometry(outline, {
     depth,
     bevelEnabled: true,
-    bevelThickness: 0.008,
-    bevelSize: 0.008,
-    bevelSegments: 1,
-    curveSegments: 10,
+    bevelThickness: 0.006,
+    bevelSize: 0.006,
+    bevelSegments: 2,
+    curveSegments: 18,
   });
   geometry.translate(0, 0, -depth / 2);
+  applyCurl(geometry, length, CURL_BY_SHAPE[shape] ?? 0.1);
   geometry.computeVertexNormals();
   geometryCache.set(key, geometry);
   return geometry;
